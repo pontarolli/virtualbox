@@ -1,0 +1,364 @@
+[
+  {
+    "id": "e694786fbf586345",
+    "type": "tab",
+    "label": "InfluxDB",
+    "disabled": false,
+    "info": "# InfluxDB 2 com Node-RED\n\nBanco de **serie temporal**: cada ponto tem horario, *fields* (valores medidos)\ne *tags* (rotulos). Conexao: `http://influxdb:8086`, org `lab`, bucket `lab`.\n\n## Como usar em aula\n\n1. Inject **2** grava 20 leituras espalhadas nos ultimos 20 minutos.\n2. Inject **3** consulta e mostra as linhas no Debug.\n3. Inject **4** calcula a media por sensor - a conta roda **no banco**.\n4. Volte na aba MQTT e clique no inject 2: a leitura publicada cai no Influx\n   pela ponte de baixo, sem ninguem chamar o banco explicitamente.\n\n## Pontos a explicar\n\n- **Formato da escrita:** `msg.payload = [ {fields}, {tags} ]`. Coloque em\n  *tag* o que serve para filtrar e agrupar (`sensor`, `predio`); em *field* o\n  que e medido (`temperatura`). Tag e texto indexado; field e o dado.\n- **Horario:** por padrao e o instante da gravacao. O inject 2 passa\n  `time` dentro dos fields para criar um historico.\n- **Flux** e a linguagem de consulta: `from(bucket)` -> `range` (janela de\n  tempo, **obrigatoria**) -> `filter` -> agregacao. Bem diferente de SQL:\n  e um *pipeline*, cada `|>` recebe o resultado do anterior.\n- **Influx x MySQL:** o Influx guarda medicoes ao longo do tempo (e apaga\n  sozinho pela retencao); o MySQL guarda cadastros e relacoes. Compare com\n  a aba *SQL cheat sheet*.\n- O Grafana (`http://localhost:3000`) ja vem com este InfluxDB como *data\n  source*: da para plotar as leituras gravadas aqui."
+  },
+  {
+    "id": "cfg_influx",
+    "type": "influxdb",
+    "hostname": "influxdb",
+    "port": "8086",
+    "protocol": "http",
+    "database": "lab",
+    "name": "InfluxDB lab",
+    "usetls": false,
+    "tls": "",
+    "influxdbVersion": "2.0",
+    "url": "http://influxdb:8086",
+    "timeout": "",
+    "rejectUnauthorized": true
+  },
+  {
+    "id": "cfg_mosquitto",
+    "type": "mqtt-broker",
+    "name": "Mosquitto lab (cliente 1)",
+    "broker": "mosquitto",
+    "port": "1883",
+    "clientid": "nodered-cliente-1",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "x_cmt",
+    "type": "comment",
+    "name": "InfluxDB 2 - org 'lab', bucket 'lab', measurement 'leituras' | escrita em cima, consultas Flux embaixo",
+    "info": "",
+    "x": 520,
+    "y": 60,
+    "wires": [],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_i1",
+    "type": "inject",
+    "name": "1 - Gravar 1 leitura",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 210,
+    "y": 140,
+    "wires": [
+      [
+        "x_fn1"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_fn1",
+    "type": "function",
+    "name": "monta o ponto",
+    "func": "// O no 'influxdb out' espera:\n//   msg.payload = [ {fields}, {tags} ]\n// fields = valores medidos | tags = rotulos usados para filtrar/agrupar\nmsg.payload = [\n    {\n        temperatura: Number((20 + Math.random() * 10).toFixed(1)),\n        umidade:     Number((40 + Math.random() * 20).toFixed(1))\n    },\n    { sensor: \"sala-01\", predio: \"A\" }\n];\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 440,
+    "y": 140,
+    "wires": [
+      [
+        "x_out"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_i2",
+    "type": "inject",
+    "name": "2 - Gravar 20 leituras (historico)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 230,
+    "y": 220,
+    "wires": [
+      [
+        "x_fn2"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_fn2",
+    "type": "function",
+    "name": "20 pontos nos ultimos 20 min",
+    "func": "// Uma mensagem por ponto, com horario proprio (msg.payload[0].time)\nconst agora = Date.now();\nconst msgs = [];\nfor (let i = 19; i >= 0; i--) {\n    msgs.push({ payload: [\n        {\n            temperatura: Number((22 + Math.sin(i / 3) * 4 + Math.random()).toFixed(1)),\n            umidade:     Number((50 + Math.cos(i / 4) * 8 + Math.random()).toFixed(1)),\n            time:        new Date(agora - i * 60000)\n        },\n        { sensor: \"sala-02\", predio: \"A\" }\n    ]});\n}\nreturn [msgs];\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 480,
+    "y": 220,
+    "wires": [
+      [
+        "x_out"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_out",
+    "type": "influxdb out",
+    "influxdb": "cfg_influx",
+    "name": "grava em lab/leituras",
+    "measurement": "leituras",
+    "precision": "",
+    "retentionPolicy": "",
+    "database": "database",
+    "precisionV18FluxV20": "ms",
+    "retentionPolicyV18Flux": "",
+    "org": "lab",
+    "bucket": "lab",
+    "x": 790,
+    "y": 180,
+    "wires": [],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_i3",
+    "type": "inject",
+    "name": "3 - Consultar ultimas leituras",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 225,
+    "y": 320,
+    "wires": [
+      [
+        "x_in1"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_in1",
+    "type": "influxdb in",
+    "influxdb": "cfg_influx",
+    "name": "Flux: ultimas 10 temperaturas",
+    "query": "from(bucket: \"lab\")\n  |> range(start: -6h)\n  |> filter(fn: (r) => r._measurement == \"leituras\")\n  |> filter(fn: (r) => r._field == \"temperatura\")\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 10)",
+    "rawOutput": false,
+    "precision": "",
+    "retentionPolicy": "",
+    "org": "lab",
+    "x": 520,
+    "y": 320,
+    "wires": [
+      [
+        "x_d1"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_d1",
+    "type": "debug",
+    "name": "3 - linhas retornadas",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 820,
+    "y": 320,
+    "wires": [],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_i4",
+    "type": "inject",
+    "name": "4 - Media por sensor",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 205,
+    "y": 400,
+    "wires": [
+      [
+        "x_in2"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_in2",
+    "type": "influxdb in",
+    "influxdb": "cfg_influx",
+    "name": "Flux: media de temperatura",
+    "query": "from(bucket: \"lab\")\n  |> range(start: -6h)\n  |> filter(fn: (r) => r._measurement == \"leituras\" and r._field == \"temperatura\")\n  |> group(columns: [\"sensor\"])\n  |> mean()",
+    "rawOutput": false,
+    "precision": "",
+    "retentionPolicy": "",
+    "org": "lab",
+    "x": 510,
+    "y": 400,
+    "wires": [
+      [
+        "x_d2"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_d2",
+    "type": "debug",
+    "name": "4 - media por sensor",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 810,
+    "y": 400,
+    "wires": [],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_cmt2",
+    "type": "comment",
+    "name": "Ponte MQTT -> InfluxDB: publique no inject 2 da aba MQTT e a leitura cai no banco sozinha",
+    "info": "",
+    "x": 560,
+    "y": 490,
+    "wires": [],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_mqtt",
+    "type": "mqtt in",
+    "name": "assina lab/sensor/+",
+    "topic": "lab/sensor/+",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "cfg_mosquitto",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 230,
+    "y": 560,
+    "wires": [
+      [
+        "x_fn3"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_fn3",
+    "type": "function",
+    "name": "MQTT -> ponto do Influx",
+    "func": "// payload que chega do MQTT:\n//   { sensor, temperatura, umidade, horario }\nconst d = msg.payload;\nmsg.payload = [\n    { temperatura: d.temperatura, umidade: d.umidade },\n    { sensor: d.sensor, origem: \"mqtt\" }\n];\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 520,
+    "y": 560,
+    "wires": [
+      [
+        "x_out2"
+      ]
+    ],
+    "z": "e694786fbf586345"
+  },
+  {
+    "id": "x_out2",
+    "type": "influxdb out",
+    "influxdb": "cfg_influx",
+    "name": "grava o que veio do MQTT",
+    "measurement": "leituras",
+    "precision": "",
+    "retentionPolicy": "",
+    "database": "database",
+    "precisionV18FluxV20": "ms",
+    "retentionPolicyV18Flux": "",
+    "org": "lab",
+    "bucket": "lab",
+    "x": 830,
+    "y": 560,
+    "wires": [],
+    "z": "e694786fbf586345"
+  }
+]

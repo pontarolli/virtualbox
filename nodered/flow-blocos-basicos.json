@@ -1,0 +1,516 @@
+[
+  {
+    "id": "57d4a7058694dd3c",
+    "type": "tab",
+    "label": "Blocos básicos",
+    "disabled": false,
+    "info": "# Blocos basicos do Node-RED\n\nCada linha e um exemplo independente: clique no inject e compare o que entrou\ncom o que saiu, na aba **Debug**.\n\n| # | No | Para que serve |\n|---|---|---|\n| 1 | `function` | escrever JavaScript: transforma `msg` e retorna |\n| 2 | `change` | set / move / delete de propriedades, **sem escrever codigo** |\n| 3 | `switch` | roteia a mensagem por saidas diferentes conforme uma condicao |\n| 4 | `template` | monta texto com `{{mustache}}` a partir da mensagem |\n| 5 | `split` + `join` | quebra uma lista em varias mensagens e junta de volta |\n| 6 | `delay` | atrasa (ou limita a vazao de) mensagens |\n\n## A ideia central: a mensagem (`msg`)\n\nTudo que anda pelos fios e um objeto `msg`. Por convencao os dados ficam em\n`msg.payload` e o assunto em `msg.topic`, mas voce pode criar qualquer campo.\nCada no recebe `msg`, altera e passa adiante.\n\n**`change` x `function`:** os dois fazem a mesma coisa no exemplo 2. Prefira o\n`change` quando for so mexer em campos - fica visual e nao quebra. Use o\n`function` quando precisar de logica (contas, condicoes, laços).\n\n**`switch`:** as saidas sao testadas de cima para baixo; `otherwise` (a ultima)\npega o que sobrou. Duas saidas = dois caminhos diferentes no flow.\n\n**`split` / `join`:** o `split` marca cada pedaco em `msg.parts`; o `join` em\nmodo *automatic* usa essa marcacao para remontar sozinho.\n\n**`delay`:** tambem serve como limitador de vazao (*rate limit*), util para nao\ninundar um banco ou um broker."
+  },
+  {
+    "id": "b_cmt",
+    "type": "comment",
+    "name": "Blocos basicos do Node-RED - clique em cada inject e compare a entrada com a saida no Debug",
+    "info": "",
+    "x": 440,
+    "y": 60,
+    "wires": [],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_i1",
+    "type": "inject",
+    "name": "function: numero 7",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "7",
+    "payloadType": "num",
+    "x": 210,
+    "y": 140,
+    "wires": [
+      [
+        "b_fn"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_fn",
+    "type": "function",
+    "name": "dobra e descreve",
+    "func": "// no function voce escreve JavaScript.\n// msg e a mensagem que entrou; o que voce retornar segue no flow.\nconst n = msg.payload;\nmsg.payload = { original: n, dobro: n * 2, par: n % 2 === 0 };\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 140,
+    "wires": [
+      [
+        "b_d1"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_d1",
+    "type": "debug",
+    "name": "1 - saida do function",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 720,
+    "y": 140,
+    "wires": [],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_i2",
+    "type": "inject",
+    "name": "change: objeto do aluno",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"nome\":\"Ana\",\"idade\":20}",
+    "payloadType": "json",
+    "x": 220,
+    "y": 220,
+    "wires": [
+      [
+        "b_ch"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_ch",
+    "type": "change",
+    "name": "set / delete sem codigo",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "cadastro",
+        "tot": "str"
+      },
+      {
+        "t": "set",
+        "p": "payload.status",
+        "pt": "msg",
+        "to": "ativo",
+        "tot": "str"
+      },
+      {
+        "t": "delete",
+        "p": "payload.idade",
+        "pt": "msg"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 460,
+    "y": 220,
+    "wires": [
+      [
+        "b_d2"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_d2",
+    "type": "debug",
+    "name": "2 - saida do change",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 720,
+    "y": 220,
+    "wires": [],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_i3",
+    "type": "inject",
+    "name": "switch: 32 graus (quente)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"sensor\":\"sala-01\",\"temperatura\":32}",
+    "payloadType": "json",
+    "x": 220,
+    "y": 300,
+    "wires": [
+      [
+        "b_sw"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_i4",
+    "type": "inject",
+    "name": "switch: 22 graus (normal)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"sensor\":\"sala-01\",\"temperatura\":22}",
+    "payloadType": "json",
+    "x": 220,
+    "y": 360,
+    "wires": [
+      [
+        "b_sw"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_sw",
+    "type": "switch",
+    "name": "temperatura >= 30 ?",
+    "property": "payload.temperatura",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "gte",
+        "v": "30",
+        "vt": "num"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "false",
+    "repair": false,
+    "outputs": 2,
+    "x": 470,
+    "y": 330,
+    "wires": [
+      [
+        "b_d3"
+      ],
+      [
+        "b_d4"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_d3",
+    "type": "debug",
+    "name": "3 - saida 1: ALERTA",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 710,
+    "y": 300,
+    "wires": [],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_d4",
+    "type": "debug",
+    "name": "3 - saida 2: normal",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 710,
+    "y": 360,
+    "wires": [],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_i5",
+    "type": "inject",
+    "name": "template: nota da Ana",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"nome\":\"Ana\",\"nota\":9.5}",
+    "payloadType": "json",
+    "x": 215,
+    "y": 440,
+    "wires": [
+      [
+        "b_tpl"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_tpl",
+    "type": "template",
+    "name": "monta a frase",
+    "field": "payload",
+    "fieldType": "msg",
+    "format": "handlebars",
+    "syntax": "mustache",
+    "template": "Aluno(a) {{payload.nome}} tirou nota {{payload.nota}}.",
+    "output": "str",
+    "x": 450,
+    "y": 440,
+    "wires": [
+      [
+        "b_d5"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_d5",
+    "type": "debug",
+    "name": "4 - saida do template",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 720,
+    "y": 440,
+    "wires": [],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_i6",
+    "type": "inject",
+    "name": "split/join: lista de nomes",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "[\"ana\",\"bruno\",\"carla\"]",
+    "payloadType": "json",
+    "x": 220,
+    "y": 520,
+    "wires": [
+      [
+        "b_spl"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_spl",
+    "type": "split",
+    "name": "1 msg por item",
+    "splt": "\\n",
+    "spltType": "str",
+    "arraySplt": 1,
+    "arraySpltType": "len",
+    "stream": false,
+    "addname": "",
+    "property": "payload",
+    "x": 430,
+    "y": 520,
+    "wires": [
+      [
+        "b_fn2"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_fn2",
+    "type": "function",
+    "name": "MAIUSCULAS",
+    "func": "msg.payload = String(msg.payload).toUpperCase();\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 520,
+    "wires": [
+      [
+        "b_joi"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_joi",
+    "type": "join",
+    "name": "junta de volta",
+    "mode": "auto",
+    "build": "object",
+    "property": "payload",
+    "propertyType": "msg",
+    "key": "topic",
+    "joiner": "\\n",
+    "joinerType": "str",
+    "useparts": true,
+    "accumulate": false,
+    "timeout": "",
+    "count": "",
+    "reduceRight": false,
+    "reduceExp": "",
+    "reduceInit": "",
+    "reduceInitType": "",
+    "reduceFixup": "",
+    "x": 800,
+    "y": 520,
+    "wires": [
+      [
+        "b_d6"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_d6",
+    "type": "debug",
+    "name": "5 - lista remontada",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 980,
+    "y": 520,
+    "wires": [],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_i7",
+    "type": "inject",
+    "name": "delay: espera 2 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "agora",
+    "payloadType": "str",
+    "x": 210,
+    "y": 600,
+    "wires": [
+      [
+        "b_dly"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_dly",
+    "type": "delay",
+    "name": "segura 2 s",
+    "pauseType": "delay",
+    "timeout": "2",
+    "timeoutUnits": "seconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "outputs": 1,
+    "x": 450,
+    "y": 600,
+    "wires": [
+      [
+        "b_d7"
+      ]
+    ],
+    "z": "57d4a7058694dd3c"
+  },
+  {
+    "id": "b_d7",
+    "type": "debug",
+    "name": "6 - chegou 2 s depois",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 710,
+    "y": 600,
+    "wires": [],
+    "z": "57d4a7058694dd3c"
+  }
+]

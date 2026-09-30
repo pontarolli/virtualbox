@@ -1,0 +1,24 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: lab
+      defaultBucket: lab
+    secureJsonData:
+      token: ${INFLUX_TOKEN}
+
+  - name: MySQL
+    type: mysql
+    access: proxy
+    url: mysql:3306
+    user: user
+    jsonData:
+      database: lab_mysql
+    secureJsonData:
+      password: ${LAB_PASSWORD}

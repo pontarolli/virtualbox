@@ -1,0 +1,16 @@
+apiVersion: 1
+
+# Carrega automaticamente todo .json desta pasta como dashboard.
+# A pasta ja e montada no container em /etc/grafana/provisioning (docker-compose.yml),
+# entao nao e preciso mudar o compose: basta soltar o .json aqui e reiniciar o Grafana.
+providers:
+  - name: lab
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

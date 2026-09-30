@@ -1,0 +1,158 @@
+name: lab
+
+# Todos os serviços ficam na rede "lab-net" e se enxergam pelo NOME do serviço
+# (ex.: o Node-RED acessa o broker em "mosquitto:1883" e o banco em "mysql:3306").
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"   # MQTT
+      - "9001:9001"   # MQTT sobre WebSocket
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    networks: [lab-net]
+
+  mysql:
+    image: mysql:8
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LAB_PASSWORD}
+      MYSQL_DATABASE: lab_mysql
+      MYSQL_USER: user
+      MYSQL_PASSWORD: ${LAB_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [lab-net]
+
+  influxdb:
+    image: influxdb:2
+    container_name: influxdb
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: root
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${LAB_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: lab
+      DOCKER_INFLUXDB_INIT_BUCKET: lab
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN}
+      TZ: ${TZ}
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    networks: [lab-net]
+
+  nodered:
+    image: nodered/node-red:latest
+    container_name: nodered
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    ports:
+      - "1880:1880"
+    volumes:
+      - nodered_data:/data
+    depends_on:
+      mosquitto:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      influxdb:
+        condition: service_started
+    networks: [lab-net]
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: root
+      GF_SECURITY_ADMIN_PASSWORD: ${LAB_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      TZ: ${TZ}
+      # usadas em grafana/provisioning/datasources/datasources.yml
+      LAB_PASSWORD: ${LAB_PASSWORD}
+      INFLUX_TOKEN: ${INFLUX_TOKEN}
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      influxdb:
+        condition: service_started
+    networks: [lab-net]
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    command: --admin-password-file /run/portainer_admin_password
+    ports:
+      - "9000:9000"   # HTTP
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+      - ./portainer/admin_password:/run/portainer_admin_password:ro
+    networks: [lab-net]
+
+  # Telegraf coleta metricas da PROPRIA VM (CPU, memoria, disco, rede) e de
+  # cada container, e grava no InfluxDB. Ele e a excecao da stack:
+  #
+  #  - network_mode: host  -> fica na rede da VM, nao na lab-net. E o que faz
+  #    as metricas de rede serem das interfaces reais (enp0s3 = NAT,
+  #    enp0s8 = bridge) e nao da interface do container. Como consequencia, o
+  #    endereco do InfluxDB no telegraf.conf e "localhost:8086" (porta
+  #    publicada) e nao "influxdb:8086".
+  #  - /:/hostfs:ro + HOST_*  -> deixa o Telegraf ler /proc, /sys e os discos
+  #    da VM em vez dos do container.
+  #  - group_add  -> o usuario "telegraf" precisa entrar no grupo do
+  #    /var/run/docker.sock para coletar metricas dos containers. Confira o
+  #    numero com: getent group docker
+  telegraf:
+    image: telegraf:latest
+    container_name: telegraf
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      HOST_MOUNT_PREFIX: /hostfs
+      HOST_PROC: /hostfs/proc
+      HOST_SYS: /hostfs/sys
+      HOST_ETC: /hostfs/etc
+      TZ: ${TZ}
+    group_add:
+      - "104"
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /:/hostfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - influxdb
+
+networks:
+  lab-net:
+    name: lab-net
+
+volumes:
+  mosquitto_data:
+  mysql_data:
+  influxdb_data:
+  influxdb_config:
+  nodered_data:
+  grafana_data:
+  portainer_data:

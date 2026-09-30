@@ -1,0 +1,170 @@
+[
+  {
+    "id": "tab_mysql_vm",
+    "type": "tab",
+    "label": "MySQL VM",
+    "disabled": false,
+    "info": "# MySQL da propria VM (container `mysql`)\n\nMesmas tres consultas da aba **MySQL** (que aponta para o MySQL do seu PC\nWindows, fora da VM), mas aqui o Node-RED conecta num **MySQL Server 8**\nque roda dentro da propria VM, como mais um container da stack\n(`lab-stack/docker-compose.yml`), ao lado do Mosquitto, InfluxDB etc.\n\n## Por que o host e so `mysql`\n\nEste container esta na mesma rede Docker `lab-net` que o Node-RED, entao\nvale a regra normal da stack: containers se enxergam pelo **nome do\nservico**, sem NAT, sem IP especial, sem Port Forwarding. Compare com a aba\n**MySQL** (a do PC Windows), que precisa do apelido `10.0.2.2` do\nVirtualBox exatamente porque aquele MySQL fica **fora** da VM - aqui nao,\nentao e so `mysql:3306`, igual ao `mosquitto:1883` que a aba MQTT usa.\n\n## Credenciais\n\nUsuario `root`, senha igual as dos outros serviços da stack\n(`LAB_PASSWORD` do `.env`, `Standard@123`) - **nao** e `root`/`root` como\nna aba MySQL do PC: aqui e a VM compartilhada da turma, entao usa a mesma\nsenha padrao (fraca, so para o laboratorio) dos demais bancos da VM.\n\n## Consultas desta aba\n\n| Inject | O que mostra |\n|---|---|\n| 1 | `SHOW DATABASES` - nomes de todos os bancos |\n| 2 | tamanho (em MB) de cada banco, via `information_schema.tables` |\n| 3 | todas as tabelas de todos os bancos (exceto os bancos internos do MySQL) |\n\nO container ja vem com um banco de exemplo, `lab_mysql` (criado pelas\nvariaveis `MYSQL_DATABASE`/`MYSQL_USER` do `docker-compose.yml`), so para a\nlista nao aparecer vazia.\n\n## Acesso de fora da VM (opcional)\n\nEste container tambem publica a porta `3306` (guest) -> `3306` (host da\nVM), para inspecionar com um cliente MySQL de dentro da propria VM\n(`mysql -h127.0.0.1 -P3306 -uroot -p`). Isso pode ser aberto tambem no\n**PC Windows** (ex.: MySQL Workbench, `localhost:3306`) - regra `mysql` de\nPort Forwarding, opcional, no Anexo \"Acesso pelo seu PC via Port\nForwarding\" do README da pasta acima."
+  },
+  {
+    "id": "cfg_mysql_vm",
+    "type": "MySQLdatabase",
+    "name": "MySQL (container VM)",
+    "host": "mysql",
+    "port": "3306",
+    "db": "mysql",
+    "tz": "",
+    "charset": "UTF8"
+  },
+  {
+    "id": "mysqlvm_cmt_intro",
+    "type": "comment",
+    "name": "MySQL da propria VM (container \"mysql\", mesma rede lab-net) - veja a guia Info",
+    "info": "",
+    "x": 400,
+    "y": 60,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_inj_1",
+    "type": "inject",
+    "name": "1 - Listar bancos de dados",
+    "props": [
+      { "p": "payload" },
+      { "p": "topic", "vt": "str" }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SHOW DATABASES",
+    "payload": "",
+    "payloadType": "date",
+    "x": 220,
+    "y": 140,
+    "wires": [ [ "mysqlvm_db_1" ] ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_db_1",
+    "type": "mysql",
+    "mydb": "cfg_mysql_vm",
+    "name": "MySQL (VM)",
+    "x": 660,
+    "y": 140,
+    "wires": [ [ "mysqlvm_dbg_1" ] ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_dbg_1",
+    "type": "debug",
+    "name": "1 - bancos de dados",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 140,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_inj_2",
+    "type": "inject",
+    "name": "2 - Bancos com tamanho (MB)",
+    "props": [
+      { "p": "payload" },
+      { "p": "topic", "vt": "str" }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT table_schema AS banco, ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS tamanho_mb, COUNT(*) AS tabelas FROM information_schema.tables GROUP BY table_schema ORDER BY tamanho_mb DESC",
+    "payload": "",
+    "payloadType": "date",
+    "x": 220,
+    "y": 220,
+    "wires": [ [ "mysqlvm_db_2" ] ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_db_2",
+    "type": "mysql",
+    "mydb": "cfg_mysql_vm",
+    "name": "MySQL (VM)",
+    "x": 660,
+    "y": 220,
+    "wires": [ [ "mysqlvm_dbg_2" ] ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_dbg_2",
+    "type": "debug",
+    "name": "2 - bancos com tamanho",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 220,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_inj_3",
+    "type": "inject",
+    "name": "3 - Tabelas de todos os bancos",
+    "props": [
+      { "p": "payload" },
+      { "p": "topic", "vt": "str" }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT table_schema AS banco, table_name AS tabela, table_rows AS linhas_aprox FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys') ORDER BY table_schema, table_name",
+    "payload": "",
+    "payloadType": "date",
+    "x": 220,
+    "y": 300,
+    "wires": [ [ "mysqlvm_db_3" ] ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_db_3",
+    "type": "mysql",
+    "mydb": "cfg_mysql_vm",
+    "name": "MySQL (VM)",
+    "x": 660,
+    "y": 300,
+    "wires": [ [ "mysqlvm_dbg_3" ] ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_dbg_3",
+    "type": "debug",
+    "name": "3 - tabelas de todos os bancos",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 300,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  }
+]

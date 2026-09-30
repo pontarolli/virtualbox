@@ -1,0 +1,273 @@
+[
+  {
+    "id": "9eabf0c63b83524c",
+    "type": "tab",
+    "label": "MQTT",
+    "disabled": false,
+    "info": "# MQTT com Node-RED\n\nBroker: container `mosquitto` da stack (`mosquitto:1883` dentro da rede `lab-net`).\n\n## Como usar em aula\n\n1. Clique no inject **1** e veja a mensagem chegar no debug **A**.\n2. Clique no inject **2**: a mensagem chega em **A** e tambem em **B**.\n\n## Pontos a explicar\n\n- **Publicar** = no `mqtt out`. **Assinar** = no `mqtt in` (nao tem entrada: ele\n  recebe do broker, nao do flow).\n- O **topico** pode estar no no (`lab/teste`, inject 1) ou vir de `msg.topic`\n  (inject 2). O que esta no no tem prioridade.\n- **Curingas na assinatura:** `#` casa com qualquer numero de niveis\n  (`lab/#` pega `lab/teste` e `lab/sensor/sala-01`); `+` casa com exatamente\n  um nivel (`lab/sensor/+` pega `lab/sensor/sala-01`, mas nao `lab/teste`).\n- O `mqtt out` converte objeto em JSON automaticamente; no `mqtt in` o campo\n  *Output* define se o texto recebido volta como string ou objeto.\n- O debug esta em *complete msg* para a turma ver `topic` e `payload` juntos.\n- Publicacao e assinatura sao **desacopladas**: quem publica nao sabe quem le.\n\n## Por que dois nos de configuracao de broker?\n\nQuando **um mesmo cliente MQTT** tem dois filtros que casam com o mesmo topico\n(`lab/#` e `lab/sensor/+`), o broker entrega **uma copia para cada filtro** - e a\nmensagem apareceria duas vezes no debug. Por isso o assinante `lab/#` usa uma\nsegunda conexao (`cliente 2`). Cada assinante deste exemplo e um cliente MQTT\nindependente, como seria na vida real."
+  },
+  {
+    "id": "cfg_mosquitto",
+    "type": "mqtt-broker",
+    "name": "Mosquitto lab (cliente 1)",
+    "broker": "mosquitto",
+    "port": "1883",
+    "clientid": "nodered-cliente-1",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "cfg_mosquitto_b",
+    "type": "mqtt-broker",
+    "name": "Mosquitto lab (cliente 2)",
+    "broker": "mosquitto",
+    "port": "1883",
+    "clientid": "nodered-cliente-2",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "q_cmt",
+    "type": "comment",
+    "name": "PUBLICAR (mqtt out) em cima, ASSINAR (mqtt in) embaixo - broker: mosquitto:1883",
+    "info": "",
+    "x": 420,
+    "y": 60,
+    "wires": [],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_inj1",
+    "type": "inject",
+    "name": "1 - Publicar texto",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "ola turma",
+    "payloadType": "str",
+    "x": 210,
+    "y": 140,
+    "wires": [
+      [
+        "q_out1"
+      ]
+    ],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_out1",
+    "type": "mqtt out",
+    "name": "topico lab/teste",
+    "topic": "lab/teste",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "cfg_mosquitto",
+    "x": 660,
+    "y": 140,
+    "wires": [],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_inj2",
+    "type": "inject",
+    "name": "2 - Publicar JSON de sensor",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 210,
+    "y": 220,
+    "wires": [
+      [
+        "q_fn"
+      ]
+    ],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_fn",
+    "type": "function",
+    "name": "simula leitura do sensor",
+    "func": "// o topico tambem pode vir da mensagem:\n// o no mqtt out usa msg.topic quando o campo Topic dele esta vazio\nmsg.topic = \"lab/sensor/sala-01\";\nmsg.payload = {\n    sensor: \"sala-01\",\n    temperatura: Number((20 + Math.random() * 10).toFixed(1)),\n    umidade:     Number((40 + Math.random() * 20).toFixed(1)),\n    horario:     new Date().toISOString()\n};\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 440,
+    "y": 220,
+    "wires": [
+      [
+        "q_out2"
+      ]
+    ],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_out2",
+    "type": "mqtt out",
+    "name": "topico vem de msg.topic",
+    "topic": "",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "cfg_mosquitto",
+    "x": 700,
+    "y": 220,
+    "wires": [],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_cmt2",
+    "type": "comment",
+    "name": "Assinantes: # = qualquer nivel abaixo | + = exatamente um nivel",
+    "info": "",
+    "x": 420,
+    "y": 320,
+    "wires": [],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_in1",
+    "type": "mqtt in",
+    "name": "assina lab/#",
+    "topic": "lab/#",
+    "qos": "0",
+    "datatype": "auto-detect",
+    "broker": "cfg_mosquitto_b",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 220,
+    "y": 400,
+    "wires": [
+      [
+        "q_dbg1"
+      ]
+    ],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_dbg1",
+    "type": "debug",
+    "name": "A - recebido em lab/# (tudo)",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 620,
+    "y": 400,
+    "wires": [],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_in2",
+    "type": "mqtt in",
+    "name": "assina lab/sensor/+",
+    "topic": "lab/sensor/+",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "cfg_mosquitto",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 220,
+    "y": 480,
+    "wires": [
+      [
+        "q_dbg2"
+      ]
+    ],
+    "z": "9eabf0c63b83524c"
+  },
+  {
+    "id": "q_dbg2",
+    "type": "debug",
+    "name": "B - recebido em lab/sensor/+ (so sensores)",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 640,
+    "y": 480,
+    "wires": [],
+    "z": "9eabf0c63b83524c"
+  }
+]

@@ -1,0 +1,158 @@
+{
+  "uid": "lab-sensores",
+  "title": "Laboratório de Redes — Sensores (InfluxDB)",
+  "tags": ["lab", "influxdb", "node-red"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-6h", "to": "now" },
+  "editable": true,
+  "panels": [
+    {
+      "type": "text",
+      "title": "Como este painel funciona",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "O Node-RED grava no **InfluxDB** (aba *InfluxDB*, ou publicando por MQTT em `lab/sensor/+`). O Grafana **lê** o mesmo bucket `lab` e desenha. Ninguém liga um no outro em tempo real: o banco é o ponto de encontro.\n\nO *data source* já vem configurado em **Connections → Data sources → InfluxDB** (`http://influxdb:8086`, org `lab`, linguagem Flux). Gere dados na aba InfluxDB do Node-RED e clique em **Refresh** aqui."
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Temperatura por sensor",
+      "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+          "query": "from(bucket: \"lab\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"leituras\" and r._field == \"temperatura\")\n  |> group(columns: [\"sensor\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "displayName": "${__field.labels.sensor}",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "auto", "spanNulls": true }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Umidade por sensor",
+      "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+          "query": "from(bucket: \"lab\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"leituras\" and r._field == \"umidade\")\n  |> group(columns: [\"sensor\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "displayName": "${__field.labels.sensor}",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "auto", "spanNulls": true }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Última temperatura",
+      "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+      "gridPos": { "h": 7, "w": 7, "x": 0, "y": 13 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+          "query": "from(bucket: \"lab\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"leituras\" and r._field == \"temperatura\")\n  |> group(columns: [\"sensor\"])\n  |> last()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "displayName": "${__field.labels.sensor}",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 18 },
+              { "color": "orange", "value": 26 },
+              { "color": "red", "value": 30 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Média de temperatura no período",
+      "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+      "gridPos": { "h": 7, "w": 6, "x": 7, "y": 13 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+          "query": "from(bucket: \"lab\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"leituras\" and r._field == \"temperatura\")\n  |> group()\n  |> mean()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 10,
+          "max": 40,
+          "displayName": "todos os sensores",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 18 },
+              { "color": "orange", "value": 26 },
+              { "color": "red", "value": 30 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Últimas 20 leituras",
+      "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+      "gridPos": { "h": 7, "w": 11, "x": 13, "y": 13 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "P951FEA4DE68E13C5" },
+          "query": "from(bucket: \"lab\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"leituras\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 20)\n  |> keep(columns: [\"_time\", \"sensor\", \"temperatura\", \"umidade\"])"
+        }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "align": "auto", "filterable": true } }, "overrides": [] },
+      "options": { "showHeader": true }
+    }
+  ]
+}
