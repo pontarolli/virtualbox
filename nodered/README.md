@@ -180,7 +180,7 @@ ssh -p 2222 user@localhost "cd ~/lab-stack && docker compose restart grafana"
 
 ## Aba: MySQL VM
 
-MySQL Server rodando como **mais um container da stack** (`mysql:8`,
+MySQL Server rodando como **mais um container da stack** (`mysql:8.0`,
 serviço `mysql` no `lab-stack/docker-compose.yml`), na mesma rede `lab-net`
 que todos os outros. É a mesma ideia da aba **MySQL** (abaixo), só que sem
 sair da VM.
@@ -295,7 +295,7 @@ mudar nada no MySQL nem no Firewall do Windows.
 |---|---|---|
 | MySQL lab (SQL cheat sheet) | `mysql:3306`, banco `lab_mysql` | `user` / `Standard@123` |
 | Mosquitto lab (cliente 1 e 2) | `mosquitto:1883` | sem autenticação |
-| InfluxDB lab | `http://influxdb:8086`, org `lab`, bucket `lab` | token `lab-influx-token-1234` |
+| InfluxDB lab | `http://influxdb:8086`, org `lab`, bucket `lab` | token `Standard@123` |
 | MySQL (container VM) | `mysql:3306`, banco `mysql` | `root` / `Standard@123` |
 | MySQL VM - bootstrap / lab (CRUD MySQL) | `mysql:3306`, bancos `mysql` e `lab_nodered_crud` | `root` / `Standard@123` |
 | MySQL do PC (host) | `10.0.2.2:3306`, banco `mysql` | `root` / `root` |

@@ -1,0 +1,28 @@
+name: db
+
+# Stack minima para a disciplina de Banco de Dados: so o MySQL (sem
+# Grafana/InfluxDB/Node-RED/Portainer/Mosquitto/Telegraf da lab-stack/,
+# que e para Redes de Computadores).
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LAB_PASSWORD}
+      MYSQL_DATABASE: db_mysql
+      MYSQL_USER: user
+      MYSQL_PASSWORD: ${LAB_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql_data:

@@ -14,7 +14,7 @@ param(
     [string]$NodeRed          = "http://localhost:1880",
     [string]$Arquivo          = "",                      # vazio = envia todos os flow-*.json da pasta
     [string]$SenhaLab         = "Standard@123",
-    [string]$InfluxToken      = "lab-influx-token-1234",
+    [string]$InfluxToken      = "Standard@123",
     [string]$UsuarioMySQLHost = "root",              # abas MySQL / CRUD MySQL (host = 10.0.2.2, fora da VM)
     [string]$SenhaMySQLHost   = "root"
 )

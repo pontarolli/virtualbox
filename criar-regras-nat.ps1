@@ -4,6 +4,12 @@
 # Pode ser executado com a VM ligada ou desligada. Pode repetir sem problema.
 param([string]$Vm = "debian")
 
+# Independente do $ErrorActionPreference do chamador (ex.: criar-vm-debian.ps1
+# usa "Stop"): este script trata seus proprios erros via $LASTEXITCODE, entao
+# fixamos "Continue" aqui para que o stderr das chamadas "delete" (esperado
+# falhar quando a regra ainda nao existe) nao vire um erro fatal.
+$ErrorActionPreference = "Continue"
+
 $vb = "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
 if (-not (Test-Path $vb)) { Write-Error "VBoxManage nao encontrado em $vb"; exit 1 }
 

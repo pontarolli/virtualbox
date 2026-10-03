@@ -16,7 +16,7 @@ services:
     networks: [lab-net]
 
   mysql:
-    image: mysql:8
+    image: mysql:8.0
     container_name: mysql
     restart: unless-stopped
     environment:
@@ -115,10 +115,9 @@ services:
   # cada container, e grava no InfluxDB. Ele e a excecao da stack:
   #
   #  - network_mode: host  -> fica na rede da VM, nao na lab-net. E o que faz
-  #    as metricas de rede serem das interfaces reais (enp0s3 = NAT,
-  #    enp0s8 = bridge) e nao da interface do container. Como consequencia, o
-  #    endereco do InfluxDB no telegraf.conf e "localhost:8086" (porta
-  #    publicada) e nao "influxdb:8086".
+  #    as metricas de rede serem da interface real (enp0s3 = NAT) e nao da
+  #    interface do container. Como consequencia, o endereco do InfluxDB no
+  #    telegraf.conf e "localhost:8086" (porta publicada) e nao "influxdb:8086".
   #  - /:/hostfs:ro + HOST_*  -> deixa o Telegraf ler /proc, /sys e os discos
   #    da VM em vez dos do container.
   #  - group_add  -> o usuario "telegraf" precisa entrar no grupo do
