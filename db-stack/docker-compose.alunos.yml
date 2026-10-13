@@ -1,0 +1,33 @@
+name: db-alunos
+
+# Stack para a disciplina de Banco de Dados com UMA UNICA instancia do MySQL
+# contendo um banco e um usuario por aluno (isolados entre si) e um usuario
+# "professor" com acesso de leitura/escrita a todos os bancos dos alunos.
+#
+# Alternativa ao docker-compose.yml (stack minima com 1 usuario) desta pasta.
+# Os dois usam a mesma porta (3306) e nao devem ser executados ao mesmo tempo.
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-alunos
+    restart: unless-stopped
+    command: --max_connections=300
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LAB_PASSWORD}
+      LAB_PASSWORD: ${LAB_PASSWORD}
+      PROFESSOR_PASSWORD: ${PROFESSOR_PASSWORD}
+      NUM_ALUNOS: ${NUM_ALUNOS:-40}
+      TZ: ${TZ}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_alunos_data:/var/lib/mysql
+      - ./initdb-alunos:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql_alunos_data:

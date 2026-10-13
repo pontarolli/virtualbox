@@ -1,4 +1,4 @@
-# Cria e instala automaticamente a VM mestre "debian" no VirtualBox, sem
+# Cria e instala automaticamente a VM mestre "lab" no VirtualBox, sem
 # passar pelas telas do instalador na mao (idioma, teclado, particionamento,
 # usuario e senha). Reproduz o Anexo A.2/A.3 do README com o recurso nativo
 # "VBoxManage unattended install" do VirtualBox (7.0+). Tambem ja cria as
@@ -11,7 +11,7 @@
 #   .\criar-vm-debian.ps1 -Iso "C:\Users\ricar\Downloads\debian-13.7.0-amd64-netinst.iso"
 #
 # Parametros opcionais (defaults = valores do Anexo A do README):
-#   -Vm nome-da-vm        (default: debian)
+#   -Vm nome-da-vm        (default: lab)
 #   -MemoriaMB 2048        -Cpus 2        -DiscoMB 20480
 #   -SemGui                para instalar "as escuras" (sem abrir a janela da VM)
 #   -Manual                pula a instalacao desatendida: so cria a VM (disco,
@@ -27,7 +27,7 @@
 # A.4 (Docker + stack) e A.5 (exportar para .ova).
 param(
   [Parameter(Mandatory = $true)][string]$Iso,
-  [string]$Vm = "debian",
+  [string]$Vm = "lab",
   [int]$MemoriaMB = 2048,
   [int]$Cpus = 2,
   [int]$DiscoMB = 20480,
@@ -88,7 +88,7 @@ A janela da VM abriu com o instalador do Debian pronto para rodar. Na tela:
   1. Escolha "Install" (modo texto, nao "Graphical install").
   2. Idioma/localizacao/teclado: como preferir (o teclado fica 'us' por
      padrao no layout do instalador se voce escolher English).
-  3. Hostname: debian
+  3. Hostname: lab
   4. Dominio: (deixe em branco ou "lan")
   5. Senha do root: DEIXE EM BRANCO (nos dois campos) - o instalador entende
      que nao vai ter conta root separada e ja coloca o usuario comum no
@@ -124,7 +124,7 @@ $startType = if ($SemGui) { "headless" } else { "gui" }
   --iso="$Iso" `
   --user=user --user-password=user --full-user-name=user `
   --admin-password=root `
-  --hostname=debian.lan `
+  --hostname=lab.lan `
   --locale=en_US --country=US --time-zone=America/Sao_Paulo `
   --package-selection-adjustment=minimal `
   --script-template="$templatePreseed" `

@@ -1,0 +1,2005 @@
+[
+  {
+    "id": "tab_mysql_vm",
+    "type": "tab",
+    "label": "MySQL",
+    "disabled": false,
+    "info": "# MySQL\n\nUma aba so pro MySQL, sempre contra o banco da propria VM (container `mysql`, mesma rede Docker `lab-net` que o Node-RED) - sem IP especial, sem Port Forwarding, sem depender de ninguem ter MySQL instalado no PC. Isso garante que funciona igual pra turma inteira.\n\n## O que tem aqui\n\n**Cheat sheet de SQL (injects 0, e 1.1 a 3.10)** - 27 consultas em tres niveis (iniciante, medio, avancado), sobre um esquema pequeno de escola. Rode o inject **0** primeiro - ele cria e popula as tabelas. Depois clique em qualquer exemplo, em qualquer ordem, e leia a aba Debug: o `topic` mostra o SQL executado e o `payload` mostra o resultado. Detalhes completos mais abaixo (esquema, os tres niveis, exercicios sugeridos).\n\n**Listar bancos (injects 1 a 3)** - tres consultas simples: nomes dos bancos (`SHOW DATABASES`), tamanho em MB de cada um, e as tabelas de todos os bancos (exceto os internos do MySQL).\n\n**CRUD bookstore (injects 0 a 9)** - exemplo completo de Create/Read/Update/Delete, isolado num schema proprio, `lab_nodered_crud` (nao mexe no banco `lab_mysql` que o cheat sheet usa). Clique nos injects **na ordem de 0 a 9** e acompanhe a aba Debug.\n\n| Passo | Operacao | SQL |\n|---|---|---|\n| 0 | preparar | CREATE DATABASE IF NOT EXISTS lab_nodered_crud |\n| 1 | preparar | DROP + CREATE TABLE (authors, books) |\n| 2 | Create | INSERT INTO authors |\n| 3 | Create | INSERT INTO books (4 linhas) |\n| 4 | Read | SELECT ... JOIN ... WHERE |\n| 5 | Update | UPDATE books SET title |\n| 6 | Read | conferir o UPDATE |\n| 7 | Delete | DELETE FROM books |\n| 8 | Read | conferir o DELETE |\n| 9 | limpar | DROP TABLE (o schema `lab_nodered_crud` fica, so as tabelas somem) |\n\nO CRUD usa duas conexoes: **bootstrap** (banco `mysql`, que sempre existe, so para rodar o `CREATE DATABASE` do passo 0) e **lab** (ja dentro do schema `lab_nodered_crud`, usada nos passos 1 a 9).\n\n## Cheat sheet de SQL - detalhes\n\n### O esquema\n\n```\ncursos(curso_id PK, nome, carga_horaria)\nalunos(aluno_id PK, nome, cidade, ano_ingresso)\nmatriculas(matricula_id PK, aluno_id FK, curso_id FK, semestre, nota)\n```\n\n8 alunos, 4 cursos, 16 matriculas. *Heitor Pinto* nao tem matricula e duas matriculas estao com `nota` nula - de proposito, para os exemplos de `LEFT JOIN`, `IS NULL` e `COALESCE` terem o que mostrar.\n\n### Nivel 1 - iniciante\n\nO SELECT do dia a dia e as tres escritas. A ordem em que o banco monta a resposta e: `FROM` -> `WHERE` -> `SELECT` -> `ORDER BY` -> `LIMIT`. Saber isso explica quase todo erro de iniciante.\n\nRegra de ouro: **`UPDATE` e `DELETE` sem `WHERE` afetam a tabela inteira.** Teste o filtro com um `SELECT` antes.\n\n### Nivel 2 - medio\n\nJuntar tabelas e resumir.\n\n- `INNER JOIN` so traz quem tem par nas duas tabelas; `LEFT JOIN` traz tudo da esquerda e preenche com `NULL` o que nao casou - o par `LEFT JOIN` + `IS NULL` e a forma classica de achar \"quem nao tem\".\n- `WHERE` filtra **linhas**, antes de agrupar; `HAVING` filtra **grupos**, depois de agrupar. Por isso `HAVING` pode usar `AVG()` e `WHERE` nao.\n- Toda coluna do `SELECT` que nao esta dentro de uma funcao de agregacao precisa estar no `GROUP BY`.\n- Cuidado com `NULL`: ele nao e igual a nada, nem a outro `NULL`. Use `IS NULL` / `IS NOT NULL`, e `COALESCE` para dar um valor padrao.\n\n### Nivel 3 - avancado\n\n- **CTE (`WITH`)**: da nome a um resultado intermediario e deixa a consulta legivel de cima para baixo, em vez de subconsultas aninhadas.\n- **Funcoes de janela (`OVER`)**: agregam *sem* colapsar as linhas. O `GROUP BY` transforma 16 linhas em 4; o `AVG() OVER (PARTITION BY ...)` mantem as 16 e coloca a media do grupo ao lado de cada uma. E o que permite ranquear (`RANK()`) e comparar a linha com o proprio grupo.\n- **`EXISTS` / `NOT EXISTS`**: subconsulta correlacionada; costuma ser mais rapida que `NOT IN` e nao quebra quando aparece `NULL`.\n- **`GROUP_CONCAT` / `JSON_ARRAYAGG`**: agregam texto e JSON - uteis para devolver uma lista pronta para o Node-RED ou para um dashboard.\n- **`VIEW`**: consulta salva com nome; simplifica relatorios repetidos.\n- **Indice e `EXPLAIN`**: o indice acelera a busca por uma coluna; o `EXPLAIN` mostra o plano do banco. Compare a coluna `type` e `rows` antes e depois de criar o indice do 3.9.\n\n### Dois detalhes do Node-RED\n\n- **Uma instrucao por mensagem.** O no `mysql` executa um comando por mensagem recebida. E quando varias mensagens chegam juntas, o *pool* de conexoes pode executa-las **fora de ordem** - o que quebra um DDL. Por isso o passo 0 do cheat sheet usa o padrao \"proximo comando\": so envia o proximo depois que o anterior voltou. (O CRUD, abaixo, usa um padrao mais simples - uma funcao que emite os comandos de uma vez - por isso tem mais cuidado com a ordem entre DROP e CREATE da mesma tabela.)\n- **Transacoes** (`START TRANSACTION` / `COMMIT`) nao funcionam bem aqui, pelo mesmo motivo: cada mensagem pode sair por uma conexao diferente do pool. Para transacao, escreva uma *stored procedure* e chame com `CALL`.\n\n### Exercicios sugeridos\n\n1. Liste os alunos de Dourados que estao matriculados em Redes de Computadores.\n2. Quantos alunos ha por cidade? Mostre so as cidades com 2 ou mais.\n3. Qual o melhor aluno de cada curso? (dica: 3.2)\n4. Quem esta matriculado em todos os 4 cursos? (dica: `GROUP BY` + `HAVING COUNT`)\n5. Crie uma view com a situacao (aprovado/recuperacao/reprovado) de cada matricula.\n\n## Credenciais\n\nCheat sheet (`lab_mysql`): `user` / `Standard@123` - a conta comum da VM. Listagens e CRUD (`mysql` e `lab_nodered_crud`): `root` / `Standard@123` - e `root` porque precisam criar/derrubar bancos, tabelas e o proprio schema, algo que a conta comum nao tem permissao para fazer.\n\n## Quer conectar no MySQL do seu proprio PC em vez do da VM? (opcional)\n\nIsso nao vem configurado aqui de proposito - depende de cada aluno ter um MySQL local rodando, o que nem todo mundo tem, e quebraria o roteiro pra quem nao tem. Se voce quiser mesmo assim, crie seu proprio no de configuracao MySQL (arraste um no `mysql` novo) apontando para:\n\n- **Host:** `10.0.2.2` (apelido fixo que o VirtualBox da para o seu PC, visto de dentro da VM, quando o Adapter 1 esta em NAT - nao precisa de Port Forwarding nesse sentido, VM -> PC ja vem liberado pelo proprio NAT).\n- **Porta:** `3306`\n- **Usuario/senha:** os do MySQL instalado no seu PC (ex.: `root`/`root`, se for esse o seu caso).\n\nIsso e so uma anotacao de referencia - nao existe nenhum no configurado com esse endereco nesta aba."
+  },
+  {
+    "id": "cfg_mariadb_lab",
+    "type": "MySQLdatabase",
+    "name": "MySQL lab",
+    "host": "mysql",
+    "port": "3306",
+    "db": "lab_mysql",
+    "tz": "",
+    "charset": "UTF8"
+  },
+  {
+    "id": "s_h0",
+    "type": "comment",
+    "z": "tab_mysql_vm",
+    "name": "PREPARAR: cria e popula cursos, alunos e matriculas (rode sempre primeiro)",
+    "info": "",
+    "x": 420,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "s_setup",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "0 - Preparar o banco de exemplo",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 300,
+    "y": 120,
+    "wires": [
+      [
+        "s_fn"
+      ]
+    ]
+  },
+  {
+    "id": "s_fn",
+    "type": "function",
+    "z": "tab_mysql_vm",
+    "name": "DDL + dados de exemplo",
+    "func": "const ddl = [\n    \"DROP VIEW IF EXISTS vw_media_curso\",\n    \"DROP TABLE IF EXISTS matriculas\",\n    \"DROP TABLE IF EXISTS alunos\",\n    \"DROP TABLE IF EXISTS cursos\",\n\n    \"CREATE TABLE cursos (curso_id INT AUTO_INCREMENT PRIMARY KEY, nome VARCHAR(60) NOT NULL, carga_horaria INT)\",\n    \"CREATE TABLE alunos (aluno_id INT AUTO_INCREMENT PRIMARY KEY, nome VARCHAR(60) NOT NULL, cidade VARCHAR(40), ano_ingresso INT)\",\n    \"CREATE TABLE matriculas (matricula_id INT AUTO_INCREMENT PRIMARY KEY, aluno_id INT NOT NULL, curso_id INT NOT NULL, semestre VARCHAR(7), nota DECIMAL(4,2), FOREIGN KEY (aluno_id) REFERENCES alunos(aluno_id), FOREIGN KEY (curso_id) REFERENCES cursos(curso_id))\",\n\n    \"INSERT INTO cursos (nome, carga_horaria) VALUES ('Redes de Computadores',80),('Computacao em Nuvem',60),('Banco de Dados',80),('Seguranca da Informacao',40)\",\n    \"INSERT INTO alunos (nome, cidade, ano_ingresso) VALUES ('Ana Souza','Dourados',2023),('Bruno Lima','Dourados',2024),('Carla Dias','Ponta Pora',2023),('Diego Alves','Campo Grande',2025),('Elisa Rocha','Dourados',2025),('Felipe Nunes','Ponta Pora',2024),('Gabriela Melo','Campo Grande',2026),('Heitor Pinto','Dourados',2026)\",\n    \"INSERT INTO matriculas (aluno_id, curso_id, semestre, nota) VALUES (1,1,'2026-1',9.5),(1,3,'2026-1',8.0),(1,4,'2026-1',8.5),(2,1,'2026-1',6.5),(2,2,'2026-1',7.0),(2,3,'2026-1',7.5),(3,1,'2026-1',4.5),(3,3,'2026-1',9.0),(4,2,'2026-1',8.5),(4,4,'2026-1',7.5),(5,1,'2026-1',10.0),(5,2,'2026-1',6.0),(6,3,'2026-1',5.5),(6,4,'2026-1',NULL),(7,1,'2026-1',NULL),(7,2,'2026-1',9.0)\"\n];\n// Heitor Pinto (aluno 8) fica sem matricula de proposito: serve para o LEFT JOIN.\n// A lista viaja DENTRO da mensagem; o no \"proximo comando\" devolve um por vez,\n// so depois que o anterior terminou - senao a ordem do DDL nao e garantida.\nmsg.lista = ddl;\nmsg.i = 0;\nmsg.topic = ddl[0];\nmsg.payload = [];\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 120,
+    "wires": [
+      [
+        "s_db"
+      ]
+    ]
+  },
+  {
+    "id": "s_db",
+    "type": "mysql",
+    "z": "tab_mysql_vm",
+    "mydb": "cfg_mariadb_lab",
+    "name": "MySQL",
+    "x": 900,
+    "y": 120,
+    "wires": [
+      [
+        "s_next"
+      ]
+    ]
+  },
+  {
+    "id": "s_next",
+    "type": "function",
+    "z": "tab_mysql_vm",
+    "name": "proximo comando (em sequencia)",
+    "func": "// Saida 1: proximo comando (volta para o no MySQL).\n// Saida 2: acabou -> resumo para o debug.\nmsg.i = (msg.i || 0) + 1;\nif (msg.i < msg.lista.length) {\n    msg.topic = msg.lista[msg.i];\n    msg.payload = [];\n    return [msg, null];\n}\nreturn [null, { payload: msg.lista.length + \" comandos executados, na ordem.\" }];\n",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1130,
+    "y": 120,
+    "wires": [
+      [
+        "s_db"
+      ],
+      [
+        "s_dbg"
+      ]
+    ]
+  },
+  {
+    "id": "s_dbg",
+    "type": "debug",
+    "z": "tab_mysql_vm",
+    "name": "0 - banco pronto",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1360,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "s_h1",
+    "type": "comment",
+    "z": "tab_mysql_vm",
+    "name": "NIVEL 1 - INICIANTE: o SELECT do dia a dia e as tres escritas basicas",
+    "info": "",
+    "x": 420,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "n1_1",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "1.1 SELECT colunas + WHERE",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT nome, cidade, ano_ingresso FROM alunos WHERE cidade = ?",
+    "payload": "[\"Dourados\"]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 260,
+    "wires": [
+      [
+        "db1"
+      ]
+    ]
+  },
+  {
+    "id": "n1_2",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "1.2 WHERE composto: LIKE, BETWEEN, AND",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT nome, ano_ingresso FROM alunos WHERE nome LIKE ? AND ano_ingresso BETWEEN ? AND ?",
+    "payload": "[\"%a%\",2023,2024]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 320,
+    "wires": [
+      [
+        "db1"
+      ]
+    ]
+  },
+  {
+    "id": "n1_3",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "1.3 IN e IS NULL",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT matricula_id, aluno_id, nota FROM matriculas WHERE curso_id IN (1, 3) AND nota IS NULL",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 380,
+    "wires": [
+      [
+        "db1"
+      ]
+    ]
+  },
+  {
+    "id": "n1_4",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "1.4 ORDER BY + LIMIT",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT nome, ano_ingresso FROM alunos ORDER BY ano_ingresso DESC, nome ASC LIMIT 5",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 440,
+    "wires": [
+      [
+        "db1"
+      ]
+    ]
+  },
+  {
+    "id": "n1_5",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "1.5 DISTINCT",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT DISTINCT cidade FROM alunos ORDER BY cidade",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 500,
+    "wires": [
+      [
+        "db1"
+      ]
+    ]
+  },
+  {
+    "id": "n1_6",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "1.6 Agregacao simples: COUNT, MIN, MAX, AVG",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT COUNT(*) AS total_alunos, MIN(ano_ingresso) AS primeiro_ano, MAX(ano_ingresso) AS ultimo_ano FROM alunos",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 560,
+    "wires": [
+      [
+        "db1"
+      ]
+    ]
+  },
+  {
+    "id": "n1_7",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "1.7 INSERT",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "INSERT INTO alunos (nome, cidade, ano_ingresso) VALUES (?, ?, ?)",
+    "payload": "[\"Ivo Teste\",\"Dourados\",2026]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 620,
+    "wires": [
+      [
+        "db1"
+      ]
+    ]
+  },
+  {
+    "id": "n1_8",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "1.8 UPDATE (sempre com WHERE!)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "UPDATE alunos SET cidade = ? WHERE nome = ?",
+    "payload": "[\"Ponta Pora\",\"Ivo Teste\"]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 680,
+    "wires": [
+      [
+        "db1"
+      ]
+    ]
+  },
+  {
+    "id": "n1_9",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "1.9 DELETE (sempre com WHERE!)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "DELETE FROM alunos WHERE nome = ?",
+    "payload": "[\"Ivo Teste\"]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 740,
+    "wires": [
+      [
+        "db1"
+      ]
+    ]
+  },
+  {
+    "id": "db1",
+    "type": "mysql",
+    "z": "tab_mysql_vm",
+    "mydb": "cfg_mariadb_lab",
+    "name": "MySQL",
+    "x": 900,
+    "y": 500,
+    "wires": [
+      [
+        "dbg1"
+      ]
+    ]
+  },
+  {
+    "id": "dbg1",
+    "type": "debug",
+    "z": "tab_mysql_vm",
+    "name": "NIVEL 1 - resultado",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1120,
+    "y": 500,
+    "wires": []
+  },
+  {
+    "id": "s_h2",
+    "type": "comment",
+    "z": "tab_mysql_vm",
+    "name": "NIVEL 2 - MEDIO: juntar tabelas, agrupar e decidir",
+    "info": "",
+    "x": 420,
+    "y": 820,
+    "wires": []
+  },
+  {
+    "id": "n2_1",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "2.1 INNER JOIN de 3 tabelas",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT a.nome AS aluno, c.nome AS curso, m.nota FROM matriculas m JOIN alunos a ON a.aluno_id = m.aluno_id JOIN cursos c ON c.curso_id = m.curso_id ORDER BY a.nome, c.nome LIMIT 10",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 880,
+    "wires": [
+      [
+        "db2"
+      ]
+    ]
+  },
+  {
+    "id": "n2_2",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "2.2 LEFT JOIN + IS NULL (quem nao tem matricula)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT a.nome FROM alunos a LEFT JOIN matriculas m ON m.aluno_id = a.aluno_id WHERE m.matricula_id IS NULL",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 940,
+    "wires": [
+      [
+        "db2"
+      ]
+    ]
+  },
+  {
+    "id": "n2_3",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "2.3 GROUP BY + agregacao por grupo",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT c.nome AS curso, COUNT(*) AS matriculas, ROUND(AVG(m.nota), 2) AS media FROM matriculas m JOIN cursos c ON c.curso_id = m.curso_id GROUP BY c.nome ORDER BY media DESC",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1000,
+    "wires": [
+      [
+        "db2"
+      ]
+    ]
+  },
+  {
+    "id": "n2_4",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "2.4 HAVING (filtra o grupo, nao a linha)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT c.nome AS curso, ROUND(AVG(m.nota), 2) AS media FROM matriculas m JOIN cursos c ON c.curso_id = m.curso_id GROUP BY c.nome HAVING AVG(m.nota) >= 7 ORDER BY media DESC",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1060,
+    "wires": [
+      [
+        "db2"
+      ]
+    ]
+  },
+  {
+    "id": "n2_5",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "2.5 Subconsulta no WHERE (IN)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT nome, cidade FROM alunos WHERE aluno_id IN (SELECT aluno_id FROM matriculas WHERE nota >= 9)",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1120,
+    "wires": [
+      [
+        "db2"
+      ]
+    ]
+  },
+  {
+    "id": "n2_6",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "2.6 Subconsulta na lista de colunas",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT a.nome, (SELECT COUNT(*) FROM matriculas m WHERE m.aluno_id = a.aluno_id) AS qtd_cursos FROM alunos a ORDER BY qtd_cursos DESC, a.nome",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1180,
+    "wires": [
+      [
+        "db2"
+      ]
+    ]
+  },
+  {
+    "id": "n2_7",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "2.7 CASE WHEN (if/else no SQL)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT a.nome, m.nota, CASE WHEN m.nota IS NULL THEN 'sem nota' WHEN m.nota >= 7 THEN 'aprovado' WHEN m.nota >= 5 THEN 'recuperacao' ELSE 'reprovado' END AS situacao FROM matriculas m JOIN alunos a ON a.aluno_id = m.aluno_id ORDER BY a.nome LIMIT 12",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1240,
+    "wires": [
+      [
+        "db2"
+      ]
+    ]
+  },
+  {
+    "id": "n2_8",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "2.8 Funcoes de texto, data e nulo",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT UPPER(nome) AS nome, CONCAT(cidade, '/MS') AS local, YEAR(CURDATE()) - ano_ingresso AS anos_no_curso, COALESCE(NULL, cidade, 'sem cidade') AS coalesce_exemplo FROM alunos LIMIT 5",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1300,
+    "wires": [
+      [
+        "db2"
+      ]
+    ]
+  },
+  {
+    "id": "db2",
+    "type": "mysql",
+    "z": "tab_mysql_vm",
+    "mydb": "cfg_mariadb_lab",
+    "name": "MySQL",
+    "x": 900,
+    "y": 1090,
+    "wires": [
+      [
+        "dbg2"
+      ]
+    ]
+  },
+  {
+    "id": "dbg2",
+    "type": "debug",
+    "z": "tab_mysql_vm",
+    "name": "NIVEL 2 - resultado",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1120,
+    "y": 1090,
+    "wires": []
+  },
+  {
+    "id": "s_h3",
+    "type": "comment",
+    "z": "tab_mysql_vm",
+    "name": "NIVEL 3 - AVANCADO: CTE, janelas, EXISTS, agregacao em texto/JSON, view, indice",
+    "info": "",
+    "x": 420,
+    "y": 1380,
+    "wires": []
+  },
+  {
+    "id": "n3_1",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.1 CTE (WITH): consulta em etapas",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "WITH media_por_curso AS (SELECT curso_id, AVG(nota) AS media, COUNT(*) AS qtd FROM matriculas WHERE nota IS NOT NULL GROUP BY curso_id) SELECT c.nome AS curso, ROUND(mpc.media, 2) AS media, mpc.qtd FROM media_por_curso mpc JOIN cursos c ON c.curso_id = mpc.curso_id ORDER BY media DESC",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1440,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "n3_2",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.2 Janela: RANK() OVER (PARTITION BY ...)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT c.nome AS curso, a.nome AS aluno, m.nota, RANK() OVER (PARTITION BY m.curso_id ORDER BY m.nota DESC) AS posicao FROM matriculas m JOIN alunos a ON a.aluno_id = m.aluno_id JOIN cursos c ON c.curso_id = m.curso_id WHERE m.nota IS NOT NULL ORDER BY curso, posicao",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1500,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "n3_3",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.3 Janela: comparar a linha com o grupo",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT a.nome AS aluno, c.nome AS curso, m.nota, ROUND(AVG(m.nota) OVER (PARTITION BY m.curso_id), 2) AS media_do_curso, ROUND(m.nota - AVG(m.nota) OVER (PARTITION BY m.curso_id), 2) AS diferenca FROM matriculas m JOIN alunos a ON a.aluno_id = m.aluno_id JOIN cursos c ON c.curso_id = m.curso_id WHERE m.nota IS NOT NULL ORDER BY curso, diferenca DESC",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1560,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "n3_4",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.4 NOT EXISTS (subconsulta correlacionada)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT a.nome FROM alunos a WHERE NOT EXISTS (SELECT 1 FROM matriculas m WHERE m.aluno_id = a.aluno_id AND m.nota >= 7)",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1620,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "n3_5",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.5 GROUP_CONCAT e JSON_ARRAYAGG",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT c.nome AS curso, GROUP_CONCAT(a.nome ORDER BY a.nome SEPARATOR ', ') AS lista, JSON_ARRAYAGG(a.nome) AS lista_json FROM matriculas m JOIN alunos a ON a.aluno_id = m.aluno_id JOIN cursos c ON c.curso_id = m.curso_id GROUP BY c.nome",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1680,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "n3_6",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.6 UPSERT: INSERT ... ON DUPLICATE KEY UPDATE",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "INSERT INTO cursos (curso_id, nome, carga_horaria) VALUES (1, 'Redes de Computadores', 120) ON DUPLICATE KEY UPDATE carga_horaria = 120",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1740,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "n3_7",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.7 Criar VIEW (consulta salva com nome)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "CREATE OR REPLACE VIEW vw_media_curso AS SELECT c.curso_id, c.nome AS curso, ROUND(AVG(m.nota), 2) AS media, COUNT(*) AS matriculas FROM matriculas m JOIN cursos c ON c.curso_id = m.curso_id GROUP BY c.curso_id, c.nome",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1800,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "n3_8",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.8 Consultar a VIEW como se fosse tabela",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT * FROM vw_media_curso WHERE media >= 7 ORDER BY media DESC",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1860,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "n3_9",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.9 Criar INDICE",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "CREATE INDEX IF NOT EXISTS idx_matriculas_nota ON matriculas (nota)",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1920,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "n3_10",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "3.10 EXPLAIN: como o banco vai executar",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "EXPLAIN SELECT * FROM matriculas WHERE nota >= 9",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 330,
+    "y": 1980,
+    "wires": [
+      [
+        "db3"
+      ]
+    ]
+  },
+  {
+    "id": "db3",
+    "type": "mysql",
+    "z": "tab_mysql_vm",
+    "mydb": "cfg_mariadb_lab",
+    "name": "MySQL",
+    "x": 900,
+    "y": 1710,
+    "wires": [
+      [
+        "dbg3"
+      ]
+    ]
+  },
+  {
+    "id": "dbg3",
+    "type": "debug",
+    "z": "tab_mysql_vm",
+    "name": "NIVEL 3 - resultado",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1120,
+    "y": 1710,
+    "wires": []
+  },
+  {
+    "id": "s_h9",
+    "type": "comment",
+    "z": "tab_mysql_vm",
+    "name": "LIMPAR: remove as tabelas do exemplo",
+    "info": "",
+    "x": 420,
+    "y": 2060,
+    "wires": []
+  },
+  {
+    "id": "s_limpa",
+    "type": "inject",
+    "z": "tab_mysql_vm",
+    "name": "9 - Limpar tudo",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 300,
+    "y": 2120,
+    "wires": [
+      [
+        "s_fn2"
+      ]
+    ]
+  },
+  {
+    "id": "s_fn2",
+    "type": "function",
+    "z": "tab_mysql_vm",
+    "name": "DROP VIEW + DROP TABLE",
+    "func": "msg.lista = [\n    \"DROP VIEW IF EXISTS vw_media_curso\",\n    \"DROP TABLE IF EXISTS matriculas\",\n    \"DROP TABLE IF EXISTS alunos\",\n    \"DROP TABLE IF EXISTS cursos\"\n];\nmsg.i = 0;\nmsg.topic = msg.lista[0];\nmsg.payload = [];\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 2120,
+    "wires": [
+      [
+        "s_db2"
+      ]
+    ]
+  },
+  {
+    "id": "s_db2",
+    "type": "mysql",
+    "z": "tab_mysql_vm",
+    "mydb": "cfg_mariadb_lab",
+    "name": "MySQL",
+    "x": 900,
+    "y": 2120,
+    "wires": [
+      [
+        "s_next2"
+      ]
+    ]
+  },
+  {
+    "id": "s_next2",
+    "type": "function",
+    "z": "tab_mysql_vm",
+    "name": "proximo comando (em sequencia)",
+    "func": "// Saida 1: proximo comando (volta para o no MySQL).\n// Saida 2: acabou -> resumo para o debug.\nmsg.i = (msg.i || 0) + 1;\nif (msg.i < msg.lista.length) {\n    msg.topic = msg.lista[msg.i];\n    msg.payload = [];\n    return [msg, null];\n}\nreturn [null, { payload: msg.lista.length + \" comandos executados, na ordem.\" }];\n",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1130,
+    "y": 2120,
+    "wires": [
+      [
+        "s_db2"
+      ],
+      [
+        "s_dbg2"
+      ]
+    ]
+  },
+  {
+    "id": "s_dbg2",
+    "type": "debug",
+    "z": "tab_mysql_vm",
+    "name": "9 - tabelas removidas",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1360,
+    "y": 2120,
+    "wires": []
+  },
+  {
+    "id": "cfg_mysql_vm",
+    "type": "MySQLdatabase",
+    "name": "MySQL (container VM)",
+    "host": "mysql",
+    "port": "3306",
+    "db": "mysql",
+    "tz": "",
+    "charset": "UTF8"
+  },
+  {
+    "id": "cfg_crud_mysql_bootstrap",
+    "type": "MySQLdatabase",
+    "name": "MySQL VM - bootstrap",
+    "host": "mysql",
+    "port": "3306",
+    "db": "mysql",
+    "tz": "",
+    "charset": "UTF8"
+  },
+  {
+    "id": "cfg_crud_mysql_lab",
+    "type": "MySQLdatabase",
+    "name": "MySQL VM - lab_nodered_crud",
+    "host": "mysql",
+    "port": "3306",
+    "db": "lab_nodered_crud",
+    "tz": "",
+    "charset": "UTF8"
+  },
+  {
+    "id": "mysqlvm_cmt_intro",
+    "type": "comment",
+    "name": "MySQL da propria VM (container \"mysql\", mesma rede lab-net) - veja a guia Info (inclui nota de como conectar no MySQL do seu PC, se quiser)",
+    "info": "",
+    "x": 460,
+    "y": 2260,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_inj_1",
+    "type": "inject",
+    "name": "1 - Listar bancos de dados",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SHOW DATABASES",
+    "payload": "",
+    "payloadType": "date",
+    "x": 220,
+    "y": 2340,
+    "wires": [
+      [
+        "mysqlvm_db_1"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_db_1",
+    "type": "mysql",
+    "mydb": "cfg_mysql_vm",
+    "name": "MySQL (VM)",
+    "x": 660,
+    "y": 2340,
+    "wires": [
+      [
+        "mysqlvm_dbg_1"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_dbg_1",
+    "type": "debug",
+    "name": "1 - bancos de dados",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 2340,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_inj_2",
+    "type": "inject",
+    "name": "2 - Bancos com tamanho (MB)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT table_schema AS banco, ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS tamanho_mb, COUNT(*) AS tabelas FROM information_schema.tables GROUP BY table_schema ORDER BY tamanho_mb DESC",
+    "payload": "",
+    "payloadType": "date",
+    "x": 220,
+    "y": 2420,
+    "wires": [
+      [
+        "mysqlvm_db_2"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_db_2",
+    "type": "mysql",
+    "mydb": "cfg_mysql_vm",
+    "name": "MySQL (VM)",
+    "x": 660,
+    "y": 2420,
+    "wires": [
+      [
+        "mysqlvm_dbg_2"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_dbg_2",
+    "type": "debug",
+    "name": "2 - bancos com tamanho",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 2420,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_inj_3",
+    "type": "inject",
+    "name": "3 - Tabelas de todos os bancos",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT table_schema AS banco, table_name AS tabela, table_rows AS linhas_aprox FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys') ORDER BY table_schema, table_name",
+    "payload": "",
+    "payloadType": "date",
+    "x": 220,
+    "y": 2500,
+    "wires": [
+      [
+        "mysqlvm_db_3"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_db_3",
+    "type": "mysql",
+    "mydb": "cfg_mysql_vm",
+    "name": "MySQL (VM)",
+    "x": 660,
+    "y": 2500,
+    "wires": [
+      [
+        "mysqlvm_dbg_3"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "mysqlvm_dbg_3",
+    "type": "debug",
+    "name": "3 - tabelas de todos os bancos",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 2500,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_cmt",
+    "type": "comment",
+    "name": "Exemplo CRUD (bookstore), isolado no schema lab_nodered_crud - clique nos inject na ordem 0..9 e veja a aba Debug",
+    "info": "",
+    "x": 460,
+    "y": 2580,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_0",
+    "type": "inject",
+    "name": "0 - Criar banco (schema)",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "CREATE DATABASE IF NOT EXISTS lab_nodered_crud",
+    "payload": "",
+    "payloadType": "date",
+    "x": 220,
+    "y": 2640,
+    "wires": [
+      [
+        "crudmysql_db_0"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_0",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_bootstrap",
+    "name": "MySQL VM - bootstrap",
+    "x": 660,
+    "y": 2640,
+    "wires": [
+      [
+        "crudmysql_dbg_0"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_0",
+    "type": "debug",
+    "name": "0 - schema criado",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 2640,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_1",
+    "type": "inject",
+    "name": "1 - Preparar tabelas",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 210,
+    "y": 2720,
+    "wires": [
+      [
+        "crudmysql_fn_criar"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_fn_criar",
+    "type": "function",
+    "name": "DROP + CREATE TABLE",
+    "func": "// O no mysql executa UMA instrucao SQL por mensagem.\n// Entao emitimos uma mensagem para cada comando, na ordem.\nconst comandos = [\n    \"DROP TABLE IF EXISTS books\",\n    \"DROP TABLE IF EXISTS authors\",\n    \"CREATE TABLE authors (author_id INT AUTO_INCREMENT PRIMARY KEY, name_last VARCHAR(50), name_first VARCHAR(50), country VARCHAR(50))\",\n    \"CREATE TABLE books (isbn CHAR(20) PRIMARY KEY, title VARCHAR(50), author_id INT, publisher_id INT, year_pub CHAR(4), description TEXT)\"\n];\n\n// retorna um array de mensagens na mesma saida\nreturn [ comandos.map(sql => ({ topic: sql, payload: [] })) ];\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 440,
+    "y": 2720,
+    "wires": [
+      [
+        "crudmysql_db_1"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_1",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_lab",
+    "name": "MySQL VM - lab",
+    "x": 660,
+    "y": 2720,
+    "wires": [
+      [
+        "crudmysql_dbg_1"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_1",
+    "type": "debug",
+    "name": "1 - tabelas criadas",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 2720,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_2",
+    "type": "inject",
+    "name": "2 - CREATE: INSERT autor",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "INSERT INTO authors (name_last, name_first, country) VALUES (?, ?, ?)",
+    "payload": "[\"Kafka\",\"Franz\",\"Czech Republic\"]",
+    "payloadType": "json",
+    "x": 210,
+    "y": 2800,
+    "wires": [
+      [
+        "crudmysql_db_2"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_2",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_lab",
+    "name": "MySQL VM - lab",
+    "x": 660,
+    "y": 2800,
+    "wires": [
+      [
+        "crudmysql_dbg_2"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_2",
+    "type": "debug",
+    "name": "2 - autor inserido",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 2800,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_3",
+    "type": "inject",
+    "name": "3 - CREATE: INSERT 4 livros",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "INSERT INTO books (title, author_id, isbn, year_pub) VALUES ('The Castle', 1, '0805211063', '1998'), ('The Trial', 1, '0805210407', '1995'), ('The Metamorphosis', 1, '0553213695', '1995'), ('America', 1, '0805210644', '1995')",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 210,
+    "y": 2880,
+    "wires": [
+      [
+        "crudmysql_db_3"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_3",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_lab",
+    "name": "MySQL VM - lab",
+    "x": 660,
+    "y": 2880,
+    "wires": [
+      [
+        "crudmysql_dbg_3"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_3",
+    "type": "debug",
+    "name": "3 - livros inseridos",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 2880,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_4",
+    "type": "inject",
+    "name": "4 - READ: SELECT + JOIN",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT title AS 'Kafka Books' FROM books JOIN authors USING (author_id) WHERE name_last = ?",
+    "payload": "[\"Kafka\"]",
+    "payloadType": "json",
+    "x": 210,
+    "y": 2960,
+    "wires": [
+      [
+        "crudmysql_db_4"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_4",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_lab",
+    "name": "MySQL VM - lab",
+    "x": 660,
+    "y": 2960,
+    "wires": [
+      [
+        "crudmysql_dbg_4"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_4",
+    "type": "debug",
+    "name": "4 - livros do Kafka",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 2960,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_5",
+    "type": "inject",
+    "name": "5 - UPDATE: America -> Amerika",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "UPDATE books SET title = ? WHERE isbn = ?",
+    "payload": "[\"Amerika\",\"0805210644\"]",
+    "payloadType": "json",
+    "x": 210,
+    "y": 3040,
+    "wires": [
+      [
+        "crudmysql_db_5"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_5",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_lab",
+    "name": "MySQL VM - lab",
+    "x": 660,
+    "y": 3040,
+    "wires": [
+      [
+        "crudmysql_dbg_5"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_5",
+    "type": "debug",
+    "name": "5 - affectedRows do UPDATE",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 3040,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_6",
+    "type": "inject",
+    "name": "6 - READ: conferir o UPDATE",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT isbn, title, year_pub FROM books ORDER BY title",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 210,
+    "y": 3120,
+    "wires": [
+      [
+        "crudmysql_db_6"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_6",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_lab",
+    "name": "MySQL VM - lab",
+    "x": 660,
+    "y": 3120,
+    "wires": [
+      [
+        "crudmysql_dbg_6"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_6",
+    "type": "debug",
+    "name": "6 - 4 livros (America virou Amerika)",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 3120,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_7",
+    "type": "inject",
+    "name": "7 - DELETE: The Trial",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "DELETE FROM books WHERE isbn = ?",
+    "payload": "[\"0805210407\"]",
+    "payloadType": "json",
+    "x": 210,
+    "y": 3200,
+    "wires": [
+      [
+        "crudmysql_db_7"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_7",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_lab",
+    "name": "MySQL VM - lab",
+    "x": 660,
+    "y": 3200,
+    "wires": [
+      [
+        "crudmysql_dbg_7"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_7",
+    "type": "debug",
+    "name": "7 - affectedRows do DELETE",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 3200,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_8",
+    "type": "inject",
+    "name": "8 - READ: conferir o DELETE",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "SELECT isbn, title, year_pub FROM books ORDER BY title",
+    "payload": "[]",
+    "payloadType": "json",
+    "x": 210,
+    "y": 3280,
+    "wires": [
+      [
+        "crudmysql_db_8"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_8",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_lab",
+    "name": "MySQL VM - lab",
+    "x": 660,
+    "y": 3280,
+    "wires": [
+      [
+        "crudmysql_dbg_8"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_8",
+    "type": "debug",
+    "name": "8 - restaram 3 livros",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 3280,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_inj_9",
+    "type": "inject",
+    "name": "9 - Limpar (DROP TABLE)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 210,
+    "y": 3360,
+    "wires": [
+      [
+        "crudmysql_fn_limpar"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_fn_limpar",
+    "type": "function",
+    "name": "DROP TABLE books, authors",
+    "func": "const comandos = [\n    \"DROP TABLE IF EXISTS books\",\n    \"DROP TABLE IF EXISTS authors\"\n];\n\nreturn [ comandos.map(sql => ({ topic: sql, payload: [] })) ];\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 440,
+    "y": 3360,
+    "wires": [
+      [
+        "crudmysql_db_9"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_db_9",
+    "type": "mysql",
+    "mydb": "cfg_crud_mysql_lab",
+    "name": "MySQL VM - lab",
+    "x": 660,
+    "y": 3360,
+    "wires": [
+      [
+        "crudmysql_dbg_9"
+      ]
+    ],
+    "z": "tab_mysql_vm"
+  },
+  {
+    "id": "crudmysql_dbg_9",
+    "type": "debug",
+    "name": "9 - tabelas removidas",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 900,
+    "y": 3360,
+    "wires": [],
+    "z": "tab_mysql_vm"
+  }
+]

@@ -15,7 +15,7 @@ já vem pronto, sem nenhuma configuração extra de rede (seção 4).
 | Rede da VM | **NAT**, com *Port Forwarding* já configurado (seção 4) |
 | Usuário do sistema (login via SSH) | `user` |
 | Senha do usuário `user` | `user` |
-| Senha do `root` | `root` |
+| Conta `root` | desabilitada — administração é só via `sudo` com o usuário `user` |
 | Containers Docker | Portainer, Node-RED, Mosquitto (MQTT), MySQL Server, InfluxDB e Grafana (seção 5) |
 
 > Mesmo sistema operacional e arquitetura da VM na nuvem (veja a pasta
@@ -27,7 +27,7 @@ já vem pronto, sem nenhuma configuração extra de rede (seção 4).
 | Caminho | O que é |
 |---|---|
 | `README.md` | este arquivo: importar, ligar, usar e manter a VM |
-| `vm-padrao/debian.ova` | a VM pronta, para importar no VirtualBox |
+| `vm-padrao/lab.ova` | a VM pronta, para importar no VirtualBox |
 | `criar-regras-nat.ps1` | recria as regras de *Port Forwarding*, caso não venham no `.ova` (seção 4) |
 | `criar-vm-debian.ps1` | cria e instala a VM mestre automaticamente, sem telas manuais do instalador (`MANUTENCAO.md`, Anexo A.2-A.3) |
 | `debian-preseed.template` | preseed usado por `criar-vm-debian.ps1` (cópia do template padrão do VirtualBox, editável) |
@@ -43,7 +43,7 @@ já vem pronto, sem nenhuma configuração extra de rede (seção 4).
 
 ## 1. Copiar o arquivo .ova da pasta compartilhada do laboratório
 
-Copie o arquivo `debian.ova` de:
+Copie o arquivo `lab.ova` de:
 
 `[CAMINHO_DA_PASTA_COMPARTILHADA]`
 
@@ -59,11 +59,11 @@ para uma pasta no seu computador (ex.: `Documentos\lab-redes\`).
 
 No VirtualBox, **File > Import Appliance...**:
 
-1. Clique no ícone de pasta e selecione o arquivo `debian.ova` copiado no
+1. Clique no ícone de pasta e selecione o arquivo `lab.ova` copiado no
    passo anterior.
 2. Clique em **Next**, confira as configurações sugeridas (nome, memória,
    disco) e clique em **Import**.
-3. Aguarde a importação terminar — a VM `debian` aparece na lista à
+3. Aguarde a importação terminar — a VM `lab` aparece na lista à
    esquerda do VirtualBox.
 4. Antes de ligar, confira em **Settings > Network > Adapter 1** que está
    marcado **Enabled** e **Attached to: NAT** (é o padrão do `.ova`, não
@@ -155,8 +155,8 @@ laboratório.
 
 O MySQL Server é o único banco relacional da stack (`mysql:8.0`). Dentro da
 VM, pela rede `lab-net`, os outros containers o alcançam pelo nome `mysql`
-na porta `3306` — é assim que a aba **MySQL VM** do Node-RED se conecta a
-ele (veja [`nodered/README.md`](nodered/README.md)).
+na porta `3306` — é assim que a aba **MySQL** do Node-RED se conecta a ele
+(veja [`nodered/README.md`](nodered/README.md)).
 
 O Grafana já vem com dois painéis prontos (menu **Dashboards**):
 
@@ -230,9 +230,9 @@ cópia está na pasta `lab-stack/` deste repositório.
 
 ## 6. Materiais de aula prontos na VM
 
-A VM já vem com quatro abas de exemplo no Node-RED e dois painéis no Grafana.
-Tudo está versionado nesta pasta, então dá para reinstalar ou levar para
-outra VM.
+A VM já vem com quatro abas de exemplo no Node-RED e dois painéis no
+Grafana. Tudo está versionado nesta pasta, então dá para reinstalar ou
+levar para outra VM.
 
 ### Node-RED — quatro abas (<http://localhost:1880>)
 
@@ -240,49 +240,30 @@ outra VM.
 |---|---|---|
 | **Blocos básicos** | `function`, `change`, `switch`, `template`, `split`/`join`, `delay` | seis exemplos independentes; clique no inject e compare entrada e saída no Debug |
 | **MQTT** | publicar e assinar no Mosquitto, curingas `#` e `+` | publicadores em cima, assinantes embaixo |
-| **SQL cheat sheet** | 27 consultas em três níveis (iniciante, médio, avançado), contra o MySQL da VM | rode o inject **0** primeiro; depois, qualquer exemplo em qualquer ordem |
 | **InfluxDB** | gravar séries temporais e consultar com Flux | inclui uma ponte MQTT → InfluxDB |
+| **MySQL** | cheat sheet de SQL (27 consultas em três níveis), listar bancos/tamanhos/tabelas e um CRUD completo (`authors`/`books`) — tudo contra o container `mysql` da própria VM | cheat sheet: rode o inject **0** primeiro, depois qualquer exemplo em qualquer ordem; listagens: três injects independentes; CRUD: injects **na ordem de 0 a 9** |
 
 Cada aba tem a explicação completa na sua própria guia **Info** (painel da
 direita no Node-RED). Os arquivos `.json`, o roteiro de aula detalhado e o
 script de instalação estão em [`nodered/`](nodered/README.md).
 
-### Node-RED — três abas extras: MySQL (PC e VM)
+> A aba **MySQL** conecta sempre ao container `mysql` da própria stack
+> (seção 5) — nome do serviço, sem NAT nem endereço especial — então
+> funciona para qualquer um assim que o `docker-compose.yml` for aplicado.
+> A guia **Info** da aba traz, só como anotação de referência (não é um nó
+> configurado), como conectar opcionalmente ao MySQL do seu próprio PC
+> Windows em vez do da VM, para quem quiser explorar isso por conta
+> própria. Detalhes completos em [`nodered/README.md`](nodered/README.md).
 
-Além das quatro acima (que só usam serviços de dentro da VM), há três abas
-de MySQL — uma pessoal/opcional (conecta ao MySQL do **PC Windows**, fora da
-VM) e duas que já são parte da stack (conectam ao container `mysql` da
-própria VM, seção 5).
-
-| Aba | Onde conecta | Assunto | Como usar |
-|---|---|---|---|
-| **MySQL** | PC Windows (opcional) | listar todos os bancos do MySQL do PC, seu tamanho e suas tabelas | três injects independentes |
-| **CRUD MySQL** | container `mysql` da VM | exemplo `bookstore` (tabelas `authors` e `books`), num schema novo e isolado (`lab_nodered_crud`) | clique nos injects **na ordem de 0 a 9** |
-| **MySQL VM** | container `mysql` da VM | as mesmas três consultas da aba MySQL, agora contra o MySQL de dentro da VM | três injects independentes |
-
-> **Só a aba MySQL é pessoal — não faz parte da stack da VM.** Ela depende
-> de haver um MySQL rodando no PC Windows de quem usa o Node-RED (aqui,
-> MySQL 8.0, usuário `root` / senha `root`, escutando em todas as
-> interfaces). Se a VM for redistribuída para a turma (`.ova`, `MANUTENCAO.md`
-> Anexo A.5), essa aba só funciona para quem tiver um MySQL local equivalente — os
-> outros alunos podem simplesmente ignorá-la ou apagá-la. **CRUD MySQL** e
-> **MySQL VM** não têm essa restrição: conectam a um container da própria
-> stack (seção 5), então funcionam para qualquer um assim que o
-> `docker-compose.yml` com o serviço `mysql` for aplicado. Detalhes de como
-> tudo isso funciona (o endereço `10.0.2.2` da aba MySQL vs. o nome do
-> container `mysql` das outras duas, por quê o schema novo evita mexer nos
-> bancos que já existiam) estão na guia **Info** de cada aba e em
-> [`nodered/README.md`](nodered/README.md).
-
-Sugestão de ordem: **Blocos básicos → MQTT → InfluxDB → SQL cheat sheet**. Os
-três primeiros se encadeiam.
+Sugestão de ordem: **Blocos básicos → MQTT → InfluxDB → MySQL**. Os dois
+primeiros se encadeiam.
 
 ### Grafana — dois painéis (<http://localhost:3000>)
 
 | Painel | O que mostra |
 |---|---|
 | [**VM (Telegraf)**](http://localhost:3000/d/lab-vm) | CPU, memória, disco, rede e consumo por container, da própria VM |
-| [**Sensores (InfluxDB)**](http://localhost:3000/d/lab-sensores) | as leituras que o Node-RED gravar, por MQTT ou direto |
+| [**Sensores (InfluxDB)**](http://localhost:3000/d/lab-sensores) | as leituras que o Node-RED gravar, por MQTT ou direto, **e também** uma tabela direto do MySQL — a prova de que InfluxDB e MySQL convivem no mesmo dashboard |
 
 Os dois painéis ficam em `lab-stack/grafana/provisioning/dashboards/`, junto
 com o `dashboards.yml` que manda o Grafana carregar qualquer `.json` daquela
@@ -300,14 +281,21 @@ O que se quer que a turma perceba é que **ninguém liga o Node-RED ao
 Grafana**: um escreve no InfluxDB, o outro lê do InfluxDB. O banco é o ponto
 de encontro. É o mesmo desacoplamento do MQTT, uma camada acima.
 
+O mesmo painel *Sensores* também tem uma tabela ligada ao **MySQL**
+(`data source` **MySQL**, já configurado): rode o inject **0** do cheat
+sheet de SQL (aba MySQL) para criar e popular `cursos`/`alunos`/
+`matriculas`, clique em Refresh no painel, e a tabela aparece ao lado dos
+gráficos do InfluxDB. A ideia a passar para a turma: o Grafana não é só
+para séries temporais — qualquer *data source* configurado (relacional,
+série temporal, o que for) pode virar painel na mesma tela.
+
 ## Observações
 
 - Se algum serviço da seção 5 não abrir no navegador, confira os containers com
   `docker ps` (via SSH). A VM tem 2 GB de RAM, então dê 1 a 2 minutos
   depois de ligar antes de tentar.
-- Como a VM é de uso coletivo, evite alterar a senha de `user`/`root` ou
-  desligar o serviço SSH — outros colegas também vão importar e usar o mesmo
-  `.ova`.
+- Como a VM é de uso coletivo, evite alterar a senha de `user` ou desligar o
+  serviço SSH — outros colegas também vão importar e usar o mesmo `.ova`.
 - Problemas de acesso pelo seu PC (SSH ou `localhost` não abrindo) costumam
   ser do *Port Forwarding* — veja a seção 4, em especial a checagem das
   regras e o `criar-regras-nat.ps1`.

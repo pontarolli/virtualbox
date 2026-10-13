@@ -40,6 +40,23 @@ ele reportava a interface do próprio container. Com `network_mode: host` +
 colateral vale ser mostrado em aula: esse container fala com o InfluxDB por
 `localhost:8086`, o oposto da regra que vale para todos os outros.
 
+**`portainer --admin-password-file` quer a senha em texto puro, não um hash
+pronto.** `lab-stack/portainer/admin_password` continha um hash bcrypt de
+`Standard@123` (o padrão documentado pela própria Portainer, gerado com
+`htpasswd -nbB`). Na prática, com o Portainer CE 2.45.2, isso faz o container
+tratar o **hash inteiro como se fosse a senha** e hasheá-lo de novo por
+cima — a "senha real" vira o texto do hash, não `Standard@123`. Login com a
+senha certa dá `401/422 Invalid credentials`; login colando o hash inteiro
+como senha funciona (foi assim que descobrimos). A correção é simples: o
+arquivo precisa conter só `Standard@123` em texto puro, sem quebra de linha
+no final. Se isso acontecer de novo (ex.: Portainer mudar de versão outra
+vez), o diagnóstico é testar via `curl -X POST .../api/auth` com a senha
+esperada — `Invalid credentials` com tudo certo aponta pra esse mesmo
+problema. Depois de corrigir o arquivo, é preciso recriar o volume
+(`docker compose rm -sf portainer && docker volume rm lab_portainer_data &&
+docker compose up -d portainer`), porque o Portainer só lê esse arquivo na
+**primeira** inicialização do volume.
+
 **`tasksel/first` no preseed é ignorado nesta instalação — não dá para
 prevenir, só remover depois.** Testamos `d-i tasksel/first multiselect
 ssh-server` (sem "desktop" na lista) e também `multiselect none` (nenhuma
@@ -119,7 +136,7 @@ instalador. Ele usa o recurso nativo do VirtualBox 7
 
 - VirtualBox instalado (A.0).
 - O `.iso` do Debian já baixado (A.1) — anote o caminho completo do arquivo.
-- Nenhuma VM com o nome `debian` já cadastrada no VirtualBox (se houver, apague-a antes: botão direito na VM > **Remove** > **Delete all files** — ou rode o script com `-Vm outro-nome`).
+- Nenhuma VM com o nome `lab` já cadastrada no VirtualBox (se houver, apague-a antes: botão direito na VM > **Remove** > **Delete all files** — ou rode o script com `-Vm outro-nome`).
 
 **2. Rodar o script**
 
@@ -133,15 +150,15 @@ Abra o PowerShell **na pasta do `README.md`** (a mesma do
 **3. O que o script faz, na ordem**
 
 1. Confere se o VBoxManage, o `.iso` e o `criar-regras-nat.ps1` existem e se
-   não há VM `debian` já criada.
-2. Cria a VM `debian` (2048 MB RAM, 2 CPUs) e configura a placa de rede
+   não há VM `lab` já criada.
+2. Cria a VM `lab` (2048 MB RAM, 2 CPUs) e configura a placa de rede
    (Adapter 1, NAT).
 3. Chama o `criar-regras-nat.ps1` (com a VM ainda desligada) para já deixar
    as 8 regras de Port Forwarding da seção 4 do `README.md` configuradas —
    não é mais preciso rodar esse script à parte depois.
 4. Cria o disco (20 GB) e monta o `.iso` na unidade óptica.
 5. Dispara a instalação desatendida usando `debian-preseed.template`: idioma
-   `en_US`, teclado `us`, fuso `America/Sao_Paulo`, hostname `debian`,
+   `en_US`, teclado `us`, fuso `America/Sao_Paulo`, hostname `lab`,
    usuário `user`/senha `user` (já com `sudo` funcional, no grupo `sudo` e no
    grupo `docker`), root/`root`, particionamento automático (disco todo, uma
    partição), e instala `openssh-server` + `sudo` + `docker.io` +
@@ -155,9 +172,9 @@ Abra o PowerShell **na pasta do `README.md`** (a mesma do
 A instalação roda sem pedir nada — demora de alguns minutos a ~15-20 min,
 dependendo da velocidade da sua internet (o instalador baixa pacotes pelo
 espelho do Debian). Ao terminar, a VM **reinicia sozinha** e para na tela de
-login em modo texto (`debian login:`). Se preferir não ver a janela, rode
+login em modo texto (`lab login:`). Se preferir não ver a janela, rode
 com `-SemGui` e acompanhe depois pelo VirtualBox (**Mostrar**, ou
-`VBoxManage.exe showvminfo debian`/ligando a tela pela interface gráfica).
+`VBoxManage.exe showvminfo lab`/ligando a tela pela interface gráfica).
 
 **5. Confirmar que deu certo**
 
@@ -165,7 +182,7 @@ Com a VM ligada, faça login como `user` (senha `user`) na própria tela da
 VM e confira:
 
 ```bash
-hostname          # deve responder "debian"
+hostname          # deve responder "lab"
 ip -4 -br a       # enp0s3 (NAT) deve ter um IP tipo 10.0.2.x
 ```
 
@@ -177,7 +194,7 @@ ssh -p 2222 user@localhost
 
 **6. Problemas comuns**
 
-- **"Ja existe uma VM chamada 'debian'"** — apague a VM antiga antes ou use `-Vm`.
+- **"Ja existe uma VM chamada 'lab'"** — apague a VM antiga antes ou use `-Vm`.
 - **Teclado errado dentro da VM** — o instalador usa layout `us` fixo (bom para teclados como o Logitech K380). Para mudar, edite `debian-preseed.template` (linhas `console-setup/layoutcode` e `keyboard-configuration/xkb-keymap`) antes de rodar o script de novo.
 - **Travou/sem rede durante a instalação** — confira se o seu PC tem internet (o instalador precisa baixar pacotes pelo NAT).
 
@@ -199,10 +216,17 @@ montar o `.iso`) continua automático:
 
 Isso abre a janela da VM já pronta para o instalador. Siga as telas
 normalmente: **Install** (modo texto, não "Graphical install"), hostname
-`debian`, usuário `user`/senha `user`, particionamento **Guided - use entire
-disk**, e na tela de seleção de software (`tasksel`) **desmarque "Debian
-desktop environment"** e deixe **SSH server** marcado (instalação manual
-interativa não tem o bug do preseed — desmarcar aqui funciona de verdade).
+`lab` (ou outro nome, mas mantenha igual ao nome da VM no VirtualBox, pra
+facilitar — veja a nota abaixo), usuário `user`/senha `user`, particionamento
+**Guided - use entire disk**, e na tela de seleção de software (`tasksel`)
+**desmarque "Debian desktop environment"** e deixe **SSH server** marcado
+(instalação manual interativa não tem o bug do preseed — desmarcar aqui
+funciona de verdade).
+
+> O **nome da VM no VirtualBox** (usado em `-Vm`, `showvminfo`, etc.) e o
+> **hostname dentro do Linux** (o que `hostname` mostra, o que aparece no
+> prompt `user@...`) são duas coisas independentes — nada impede que
+> fiquem diferentes, mas é mais fácil de acompanhar se forem o mesmo nome.
 
 **Senha do root: deixe em branco (nos dois campos).** Esse é o ponto chave —
 sem senha de root, o próprio instalador desativa o login do root e já coloca
@@ -286,7 +310,7 @@ isso não é necessário para a exportação em si (o zero-fill acima já ajuda 
 antes de exportar:
 
 ```powershell
-& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" modifymedium disk "C:\Users\<voce>\VirtualBox VMs\debian\debian.vdi" --compact
+& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" modifymedium disk "C:\Users\<voce>\VirtualBox VMs\lab\lab.vdi" --compact
 ```
 
 ### A.5 Exportar para .ova
@@ -295,7 +319,7 @@ Com a VM instalada, testada e desligada (deixe o **Adapter 1** em **NAT** com
 as regras de *Port Forwarding*):
 
 1. **File > Export Appliance...**
-2. Selecione a VM `debian` e clique em **Next**.
+2. Selecione a VM `lab` e clique em **Next**.
 3. Formato do arquivo: **OVA 2.0** (mais simples de distribuir, um arquivo só).
 4. Escolha o destino e clique em **Next** para ver as opções do appliance
    (os nomes podem variar um pouco conforme a versão do VirtualBox):
@@ -314,7 +338,7 @@ as regras de *Port Forwarding*):
    `criar-regras-nat.ps1`, para o caso de as regras de *Port Forwarding* não
    virem dentro do `.ova`.
 7. **Teste a importação** antes de distribuir: importe o `.ova` como uma VM
-   nova (por exemplo `debian-teste`), confira em **Settings > Network >
+   nova (por exemplo `lab-teste`), confira em **Settings > Network >
    Advanced > Port Forwarding** se as 8 regras vieram e, depois de ligar,
    confira se `localhost:1880` abre (com a regra `nodered` já configurada).
    Depois apague a VM de teste em **Remove > Delete all files**.

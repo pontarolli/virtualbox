@@ -2,7 +2,7 @@
 # Uso (PowerShell, na pasta deste arquivo):   .\criar-regras-nat.ps1
 #   ou, se a VM tiver outro nome:             .\criar-regras-nat.ps1 -Vm nome-da-vm
 # Pode ser executado com a VM ligada ou desligada. Pode repetir sem problema.
-param([string]$Vm = "debian")
+param([string]$Vm = "lab")
 
 # Independente do $ErrorActionPreference do chamador (ex.: criar-vm-debian.ps1
 # usa "Stop"): este script trata seus proprios erros via $LASTEXITCODE, entao
