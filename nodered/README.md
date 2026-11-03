@@ -1,23 +1,39 @@
 # Flows de exemplo do Node-RED (laboratório de Redes)
 
-Quatro abas prontas para aula, cada uma com um serviço da stack da VM. Todas
-já estão instaladas no Node-RED da VM (<http://localhost:1880>); os
-arquivos abaixo servem para os alunos importarem e para reinstalar.
+Sete abas prontas para aula, cada uma claramente marcada como **🧪 Prática**
+(exploração livre, sem efeito no projeto) ou **🚀 Projeto** (fica ligada —
+é o que alimenta o painel do Grafana). Todas já estão instaladas no
+Node-RED da VM (<http://localhost:1880>); os arquivos abaixo servem para os
+alunos importarem e para reinstalar.
 
-| Arquivo | Aba no Node-RED | Assunto |
-|---|---|---|
-| `flow-blocos-basicos.json` | **Blocos básicos** | `function`, `change`, `switch`, `template`, `split`/`join`, `delay` |
-| `flow-mqtt.json` | **MQTT** | publicar e assinar no Mosquitto, curingas `#` e `+` |
-| `flow-influxdb.json` | **InfluxDB** | gravar séries temporais e consultar com Flux |
-| `flow-mysql.json` | **MySQL** | cheat sheet de SQL (27 consultas em três níveis), listar bancos/tamanhos/tabelas e um CRUD (`authors`/`books`) completo — tudo no MySQL da própria VM |
-| `subir-flow.ps1` | — | envia os flows para o Node-RED da VM |
+| # | Arquivo | Aba no Node-RED | Tipo | Assunto |
+|---|---|---|---|---|
+| 0 | `flow-0-comece-aqui.json` | **0 - Comece aqui** | guia | roteiro numerado com links clicáveis para o Node-RED, o InfluxDB e o Grafana |
+| 1 | `flow-blocos-basicos.json` | **1 - Prática: Blocos básicos** | 🧪 Prática | `function`, `change`, `switch`, `template`, `split`/`join`, `delay` |
+| 2 | `flow-mqtt.json` | **2 - Prática: MQTT** | 🧪 Prática | publicar e assinar no Mosquitto, curingas `#` e `+` |
+| 3 | `flow-sensor-continuo.json` | **3 - Projeto: Sensor automático** | 🚀 Projeto | publica a leitura da `sala-01` sozinho, a cada 10 s |
+| 4 | `flow-influxdb-ponte.json` | **4 - Projeto: Ponte → InfluxDB** | 🚀 Projeto | assina `lab/sensor/+` e grava cada leitura no InfluxDB, sozinha |
+| 5 | `flow-influxdb-pratica.json` | **5 - Prática: InfluxDB** | 🧪 Prática | gravar manualmente, consultar e agregar com Flux |
+| 6 | `flow-mysql.json` | **6 - Extra: MySQL** | extra | cheat sheet de SQL, listagens e um CRUD completo — tudo no MySQL da própria VM |
+| — | `subir-flow.ps1` | — | — | envia todos os flows acima para o Node-RED da VM |
 
-Sugestão de ordem em aula: **Blocos básicos → MQTT → InfluxDB → MySQL**. Os
-dois primeiros se encadeiam (a aba InfluxDB tem uma ponte que grava o que
-for publicado por MQTT); a aba **MySQL** é material de consulta (o cheat
-sheet) mais dois extras (listagens e CRUD) para ver o mesmo SGBD por outro
-ângulo — sempre contra o MySQL da própria VM, sem depender de ninguém ter
-MySQL instalado no PC.
+**Por que duas abas de InfluxDB?** A aba **4 - Projeto** é só a ponte —
+três nós, sem interface, que ficam ouvindo o Mosquitto e gravando no banco.
+Ela precisa estar sempre ligada, mas não tem nada para o aluno clicar. A
+aba **5 - Prática** é onde se aprende InfluxDB de verdade (gravar, consultar,
+agregar em Flux) e pode ser ligada e desligada à vontade sem afetar o
+projeto.
+
+## O painel "0 - Comece aqui"
+
+A primeira aba do Node-RED não é um fluxo de dados: é um roteiro. Abra a
+aba, clique no node de comentário **"COMECE AQUI"** e olhe o painel
+**Info** à direita (ícone <kbd>i</kbd>, ou <kbd>Ctrl+I</kbd> depois de
+clicar em um node) — ele mostra uma lista numerada (1 a 9) com links
+clicáveis para abrir o InfluxDB e o Grafana numa aba nova do navegador, na
+mesma ordem do livro. As abas **4 - Projeto** e **3 - Projeto** também têm
+um atalho pequeno com os mesmos dois links, para não precisar voltar até a
+aba 0 toda vez.
 
 ## Instalar na VM
 
@@ -28,6 +44,14 @@ A VM precisa estar ligada, com a regra de NAT `nodered` (`1880` → `1880`).
 **Import** → **Deploy**. Depois preencha as credenciais nos nós de
 configuração (veja a tabela no fim deste arquivo) — o Node-RED **nunca**
 exporta senhas junto com o flow.
+
+> **"Some of the nodes you are importing already exist in your
+> workspace."** Isso é esperado se a aba já estiver instalada (a VM da
+> turma já vem com todas) e você está reimportando como referência ou para
+> recuperar algo que estragou. Clique em **Import copy**: o Node-RED cria
+> uma cópia nova, com ids diferentes, numa aba separada — nada do que já
+> existia é apagado ou alterado. Depois é só comparar as duas abas e
+> apagar a que não quiser. Testado nesta VM antes de entrar neste guia.
 
 **Pelo PowerShell (já com as senhas):** na pasta deste README,
 
@@ -43,10 +67,21 @@ Envia todos os `flow-*.json`. Para um só: `-Arquivo .\flow-mqtt.json`.
 > outro banco — o banco de sistema `mysql` ou o schema novo
 > `lab_nodered_crud` (listagens e CRUD, também na aba **MySQL**) — usa
 > `root`, por precisar criar/derrubar tabelas e schemas.
+>
+> **Cada arquivo tem seus próprios nós de broker/InfluxDB, com ids
+> exclusivos.** Diferente de uma versão anterior deste material, nenhum
+> `.json` distribuído aqui compartilha o `id` de um nó de configuração com
+> outro arquivo — mesmo que dois arquivos conectem no mesmo Mosquitto ou
+> InfluxDB. Isso significa que você pode importar qualquer combinação deles,
+> em qualquer ordem, sem risco de um "duplicate id" travar o deploy. Na VM
+> já pronta da turma, por simplicidade, essas abas compartilham um único nó
+> de configuração por serviço (é mais limpo de olhar); ao importar os
+> arquivos avulsos, cada um traz sua própria cópia, funcionalmente
+> idêntica.
 
 ---
 
-## Aba: Blocos básicos
+## Aba 1 🧪 Prática: Blocos básicos
 
 Seis exemplos independentes, um por linha. Clique no `inject` e compare o
 que entrou com o que saiu, na aba **Debug**.
@@ -65,7 +100,7 @@ A ideia central é a **mensagem**: tudo que anda pelos fios é um objeto
 `change` × `function` costuma render discussão: prefira o `change` quando
 for só mexer em campos, e o `function` quando precisar de lógica.
 
-## Aba: MQTT
+## Aba 2 🧪 Prática: MQTT
 
 Publicadores em cima (`mqtt out`), assinantes embaixo (`mqtt in`). Broker:
 container `mosquitto` da stack.
@@ -84,23 +119,47 @@ exatamente um; publicação e assinatura são desacopladas.
 > isso o assinante `lab/#` usa uma segunda conexão. Cada assinante é um
 > cliente MQTT independente, como seria na vida real.
 
-## Aba: InfluxDB
+## Aba 3 🚀 Projeto: Sensor automático
+
+É o início do projeto: o mesmo sensor da aba **2 - Prática: MQTT**
+(Fluxo 2), só que publicando sozinho a cada 10 segundos, em vez de esperar
+um clique no `inject`. Um único fluxo, três nós:
+
+1. `inject` **"Sensor automático (repete a cada 10s)"** — dispara uma vez ao
+   dar Deploy e depois se repete a cada 10 s (campo *Repeat*);
+2. `function` **"simula sensor oscilando (seno)"** — gera temperatura e
+   umidade variando em **onda** (`Math.sin`/`Math.cos`), não só em ruído
+   aleatório, para o gráfico do Grafana mostrar uma curva visível subindo e
+   descendo, em vez de picos sem padrão;
+3. `mqtt out` **"publica lab/sensor/sala-01"** — mesmo tópico da aba MQTT
+   (tópico vem de `msg.topic`).
+
+Sozinha, esta aba não grava nada em banco algum — ela só publica no
+Mosquitto. Quem grava é a aba **4 - Projeto: Ponte → InfluxDB**, a seguir.
+Dê Deploy nas duas e deixe ambas ligadas: é a combinação que faz o painel
+**Sensores (InfluxDB)** do Grafana oscilar sozinho.
+
+**Testado nesta VM** (`lab.ova`): depois do Deploy, quatro leituras
+consecutivas gravadas no InfluxDB a ~10 s de intervalo
+(`25.5 → 24.1 → 22.8 → 21.6 °C`), confirmando a oscilação automática antes
+deste flow ser distribuído.
+
+> Para voltar ao modo manual (clique a clique), basta desligar esta aba
+> (clique direito na aba → **Disable Flow**); a aba MQTT continua
+> publicando do mesmo jeito, sem depender desta.
+
+## Aba 4 🚀 Projeto: Ponte → InfluxDB
+
+Três nós, sem nada para clicar: um `mqtt in` assina `lab/sensor/+`, um
+`function` converte o payload do MQTT para o formato que o InfluxDB espera
+e um `influxdb out` grava. Esta aba é a peça que faz o projeto funcionar —
+deixe-a **sempre ligada**. Ela grava tanto o que a aba **3 - Projeto:
+Sensor automático** publica sozinha quanto qualquer clique manual no
+inject 2 da aba **2 - Prática: MQTT**.
 
 Banco de **série temporal**: cada ponto tem horário, *fields* (valores
-medidos) e *tags* (rótulos para filtrar e agrupar).
-
-1. Inject **2** grava 20 leituras espalhadas nos últimos 20 minutos.
-2. Inject **3** consulta com Flux e mostra as linhas no Debug.
-3. Inject **4** calcula a média por sensor — a conta roda **no banco**.
-4. Volte na aba MQTT e clique no inject 2: a leitura publicada cai no
-   Influx pela ponte no rodapé da aba, sem ninguém chamar o banco.
-
-Pontos a explicar: o formato da escrita é
-`msg.payload = [ {fields}, {tags} ]`; o Flux é um *pipeline*
-(`from` → `range` → `filter` → agregação), bem diferente de SQL, e a janela
-de tempo em `range` é obrigatória. Vale contrastar com a aba MySQL: o
-Influx guarda medições ao longo do tempo, o MySQL guarda cadastros e
-relações.
+medidos) e *tags* (rótulos para filtrar e agrupar). O formato da escrita é
+`msg.payload = [ {fields}, {tags} ]`.
 
 ### Fechando o ciclo no Grafana
 
@@ -110,13 +169,13 @@ cinco painéis sobre o bucket `lab`: temperatura e umidade por sensor ao
 longo do tempo, última leitura, média do período e uma tabela das últimas 20
 leituras. Atualiza a cada 10 s. Mais abaixo no mesmo dashboard tem ainda uma
 sexta tabela, agora contra o MySQL — veja "Dá pra misturar bancos no mesmo
-painel?", na seção da aba **MySQL**.
+painel?", na seção da aba **6 - Extra: MySQL**.
 
 A ideia a passar para a turma é que **ninguém liga o Node-RED ao Grafana**:
 o Node-RED escreve no InfluxDB, o Grafana lê do InfluxDB, e o banco é o
 ponto de encontro. Dá para demonstrar ao vivo — deixe o dashboard aberto,
-volte ao Node-RED, clique no inject 2 da aba InfluxDB (ou publique pela aba
-MQTT) e veja o ponto aparecer no gráfico.
+deixe a aba **3 - Projeto: Sensor automático** ligada (ou clique no inject
+2 da aba **2 - Prática: MQTT**) e veja o ponto aparecer no gráfico.
 
 O dashboard está versionado em
 `../lab-stack/grafana/provisioning/dashboards/`, junto com o
@@ -135,7 +194,24 @@ ssh -p 2222 user@localhost "cd ~/lab-stack && docker compose restart grafana"
 > painel aparecer vazio com erro de data source, confira o `uid` em
 > **Connections → Data sources → InfluxDB** e ajuste no `.json`.
 
-## Aba: MySQL
+## Aba 5 🧪 Prática: InfluxDB (consultas Flux)
+
+Fluxos manuais para aprender o banco por conta própria. Nada aqui precisa
+ficar ligado para o projeto funcionar — quem faz isso é a aba **4 -
+Projeto: Ponte → InfluxDB**, anterior.
+
+1. Inject **1** grava uma única leitura, na hora do clique.
+2. Inject **2** grava 20 leituras espalhadas nos últimos 20 minutos
+   (sensor `sala-02`, para o gráfico ter duas linhas).
+3. Inject **3** consulta com Flux e mostra as linhas no Debug.
+4. Inject **4** calcula a média por sensor — a conta roda **no banco**.
+
+O Flux é um *pipeline* (`from` → `range` → `filter` → agregação), bem
+diferente de SQL, e a janela de tempo em `range` é obrigatória. Vale
+contrastar com a aba MySQL: o Influx guarda medições ao longo do tempo, o
+MySQL guarda cadastros e relações.
+
+## Aba 6 Extra: MySQL
 
 MySQL Server rodando como **mais um container da stack** (`mysql:8.0`,
 serviço `mysql` no `lab-stack/docker-compose.yml`), na mesma rede `lab-net`

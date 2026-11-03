@@ -1,0 +1,266 @@
+[
+    {
+        "id": "x_cmt",
+        "type": "comment",
+        "z": "tab_influx_pratica",
+        "name": "InfluxDB 2 - org 'lab', bucket 'lab', measurement 'leituras' | escrita em cima, consultas Flux embaixo",
+        "info": "",
+        "x": 520,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "x_i1",
+        "type": "inject",
+        "z": "tab_influx_pratica",
+        "name": "1 - Gravar 1 leitura",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 210,
+        "y": 140,
+        "wires": [
+            [
+                "x_fn1"
+            ]
+        ]
+    },
+    {
+        "id": "x_fn1",
+        "type": "function",
+        "z": "tab_influx_pratica",
+        "name": "monta o ponto",
+        "func": "// O no 'influxdb out' espera:\n//   msg.payload = [ {fields}, {tags} ]\n// fields = valores medidos | tags = rotulos usados para filtrar/agrupar\nmsg.payload = [\n    {\n        temperatura: Number((20 + Math.random() * 10).toFixed(1)),\n        umidade:     Number((40 + Math.random() * 20).toFixed(1))\n    },\n    { sensor: \"sala-01\", predio: \"A\" }\n];\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 140,
+        "wires": [
+            [
+                "x_out"
+            ]
+        ]
+    },
+    {
+        "id": "x_i2",
+        "type": "inject",
+        "z": "tab_influx_pratica",
+        "name": "2 - Gravar 20 leituras (historico)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 230,
+        "y": 220,
+        "wires": [
+            [
+                "x_fn2"
+            ]
+        ]
+    },
+    {
+        "id": "x_fn2",
+        "type": "function",
+        "z": "tab_influx_pratica",
+        "name": "20 pontos nos ultimos 20 min",
+        "func": "// Uma mensagem por ponto, com horario proprio (msg.payload[0].time)\nconst agora = Date.now();\nconst msgs = [];\nfor (let i = 19; i >= 0; i--) {\n    msgs.push({ payload: [\n        {\n            temperatura: Number((22 + Math.sin(i / 3) * 4 + Math.random()).toFixed(1)),\n            umidade:     Number((50 + Math.cos(i / 4) * 8 + Math.random()).toFixed(1)),\n            time:        new Date(agora - i * 60000)\n        },\n        { sensor: \"sala-02\", predio: \"A\" }\n    ]});\n}\nreturn [msgs];\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 640,
+        "y": 220,
+        "wires": [
+            [
+                "x_out"
+            ]
+        ]
+    },
+    {
+        "id": "x_out",
+        "type": "influxdb out",
+        "z": "tab_influx_pratica",
+        "influxdb": "cfg_pratica_influx",
+        "name": "grava em lab/leituras",
+        "measurement": "leituras",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "lab",
+        "bucket": "lab",
+        "x": 980,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "x_i3",
+        "type": "inject",
+        "z": "tab_influx_pratica",
+        "name": "3 - Consultar ultimas leituras",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 225,
+        "y": 320,
+        "wires": [
+            [
+                "x_in1"
+            ]
+        ]
+    },
+    {
+        "id": "x_in1",
+        "type": "influxdb in",
+        "z": "tab_influx_pratica",
+        "influxdb": "cfg_pratica_influx",
+        "name": "Flux: ultimas 10 temperaturas",
+        "query": "from(bucket: \"lab\")\n  |> range(start: -6h)\n  |> filter(fn: (r) => r._measurement == \"leituras\")\n  |> filter(fn: (r) => r._field == \"temperatura\")\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 10)",
+        "rawOutput": false,
+        "precision": "",
+        "retentionPolicy": "",
+        "org": "lab",
+        "x": 520,
+        "y": 320,
+        "wires": [
+            [
+                "x_d1"
+            ]
+        ]
+    },
+    {
+        "id": "x_d1",
+        "type": "debug",
+        "z": "tab_influx_pratica",
+        "name": "3 - linhas retornadas",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 820,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "x_i4",
+        "type": "inject",
+        "z": "tab_influx_pratica",
+        "name": "4 - Media por sensor",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 205,
+        "y": 400,
+        "wires": [
+            [
+                "x_in2"
+            ]
+        ]
+    },
+    {
+        "id": "x_in2",
+        "type": "influxdb in",
+        "z": "tab_influx_pratica",
+        "influxdb": "cfg_pratica_influx",
+        "name": "Flux: media de temperatura",
+        "query": "from(bucket: \"lab\")\n  |> range(start: -6h)\n  |> filter(fn: (r) => r._measurement == \"leituras\" and r._field == \"temperatura\")\n  |> group(columns: [\"sensor\"])\n  |> mean()",
+        "rawOutput": false,
+        "precision": "",
+        "retentionPolicy": "",
+        "org": "lab",
+        "x": 510,
+        "y": 400,
+        "wires": [
+            [
+                "x_d2"
+            ]
+        ]
+    },
+    {
+        "id": "x_d2",
+        "type": "debug",
+        "z": "tab_influx_pratica",
+        "name": "4 - media por sensor",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 810,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "tab_influx_pratica",
+        "type": "tab",
+        "label": "5 - Pratica: InfluxDB (consultas Flux)",
+        "disabled": false,
+        "info": "# Pratica: gravar e consultar no InfluxDB\n\nFluxos manuais para aprender o banco de series temporais: gravar um ponto, gravar um historico, consultar e agregar em Flux. Nao e preciso nada daqui ligado para o projeto funcionar -- isso quem faz e a aba **4 - Projeto: Ponte -> InfluxDB**.\n\n[Abrir o InfluxDB](http://localhost:8086)",
+        "env": []
+    },
+    {
+        "id": "cfg_pratica_influx",
+        "type": "influxdb",
+        "z": "",
+        "hostname": "influxdb",
+        "port": "8086",
+        "protocol": "http",
+        "database": "lab",
+        "name": "InfluxDB lab (pratica)",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://influxdb:8086",
+        "timeout": "",
+        "rejectUnauthorized": true
+    }
+]

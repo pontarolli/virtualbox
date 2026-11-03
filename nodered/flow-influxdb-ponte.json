@@ -1,0 +1,137 @@
+[
+    {
+        "id": "x_cmt2",
+        "type": "comment",
+        "z": "tab_influx_ponte",
+        "name": "Ponte MQTT -> InfluxDB: publique no inject 2 da aba MQTT e a leitura cai no banco sozinha",
+        "info": "",
+        "x": 560,
+        "y": 490,
+        "wires": []
+    },
+    {
+        "id": "x_mqtt",
+        "type": "mqtt in",
+        "z": "tab_influx_ponte",
+        "name": "assina lab/sensor/+",
+        "topic": "lab/sensor/+",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "cfg_ponte_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 230,
+        "y": 560,
+        "wires": [
+            [
+                "x_fn3"
+            ]
+        ]
+    },
+    {
+        "id": "x_fn3",
+        "type": "function",
+        "z": "tab_influx_ponte",
+        "name": "MQTT -> ponto do Influx",
+        "func": "// payload que chega do MQTT:\n//   { sensor, temperatura, umidade, horario }\nconst d = msg.payload;\nmsg.payload = [\n    { temperatura: d.temperatura, umidade: d.umidade },\n    { sensor: d.sensor, origem: \"mqtt\" }\n];\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 560,
+        "wires": [
+            [
+                "x_out2"
+            ]
+        ]
+    },
+    {
+        "id": "x_out2",
+        "type": "influxdb out",
+        "z": "tab_influx_ponte",
+        "influxdb": "cfg_ponte_influx",
+        "name": "grava o que veio do MQTT",
+        "measurement": "leituras",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "lab",
+        "bucket": "lab",
+        "x": 830,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "tab_influx_ponte",
+        "type": "tab",
+        "label": "4 - Projeto: Ponte -> InfluxDB",
+        "disabled": false,
+        "info": "# Projeto: a ponte MQTT -> InfluxDB\n\nEsta aba e so a ponte: assina `lab/sensor/+` no Mosquitto e grava cada leitura no InfluxDB, sozinha, sem interface. Deixe-a sempre ligada: e ela que faz o painel do Grafana funcionar, tanto com a aba **3 - Projeto: Sensor automatico** quanto com cliques manuais na aba **2 - Pratica: MQTT**.\n\n[Abrir o InfluxDB](http://localhost:8086) | [Abrir o Grafana](http://localhost:3000)",
+        "env": []
+    },
+    {
+        "id": "ponte_cmt_links",
+        "type": "comment",
+        "z": "tab_influx_ponte",
+        "name": "Depois do Deploy, confira:",
+        "info": "[Abrir o InfluxDB](http://localhost:8086) | [Abrir o Grafana](http://localhost:3000)",
+        "x": 250,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "cfg_ponte_broker",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "Mosquitto lab (projeto - ponte)",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "nodered-projeto-ponte",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "cfg_ponte_influx",
+        "type": "influxdb",
+        "z": "",
+        "hostname": "influxdb",
+        "port": "8086",
+        "protocol": "http",
+        "database": "lab",
+        "name": "InfluxDB lab (projeto - ponte)",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://influxdb:8086",
+        "timeout": "",
+        "rejectUnauthorized": true
+    }
+]

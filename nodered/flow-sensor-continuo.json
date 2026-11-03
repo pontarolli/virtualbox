@@ -1,0 +1,141 @@
+[
+    {
+        "id": "proj_sensor_tab",
+        "type": "tab",
+        "label": "3 - Projeto: Sensor automatico (a cada 10s)",
+        "disabled": false,
+        "info": "# Projeto: sensor automatico\n\nFecha o caminho sensor -> MQTT -> InfluxDB -> Grafana sem clique manual.\nO inject repete a cada 10 s, publica em `lab/sensor/sala-01` e a ponte\nMQTT -> InfluxDB (aba 3) grava sozinha. Deixe o dashboard\nSensores (InfluxDB) aberto, com refresh 10s, para ver o grafico oscilar.",
+        "env": []
+    },
+    {
+        "id": "proj_cmt1",
+        "type": "comment",
+        "z": "proj_sensor_tab",
+        "name": "Sensor automatico: publica a cada 10s em lab/sensor/sala-01; a ponte da aba 3 grava no InfluxDB sozinha",
+        "info": "",
+        "x": 250,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "proj_inj",
+        "type": "inject",
+        "z": "proj_sensor_tab",
+        "name": "Sensor automatico (repete a cada 10s)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "10",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 220,
+        "y": 140,
+        "wires": [
+            [
+                "proj_fn"
+            ]
+        ]
+    },
+    {
+        "id": "proj_fn",
+        "type": "function",
+        "z": "proj_sensor_tab",
+        "name": "simula sensor oscilando (seno)",
+        "func": "// temperatura e umidade oscilam em onda senoidal, nao so em ruido aleatorio,\n// para o grafico do Grafana mostrar uma curva visivel subindo e descendo\nconst t = Date.now();\nmsg.topic = \"lab/sensor/sala-01\";\nmsg.payload = {\n    sensor: \"sala-01\",\n    temperatura: Number((24 + 4 * Math.sin(t / 30000)).toFixed(1)),\n    umidade:     Number((55 + 10 * Math.cos(t / 45000)).toFixed(1)),\n    horario:     new Date().toISOString()\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 140,
+        "wires": [
+            [
+                "proj_out",
+                "proj_dbg"
+            ]
+        ]
+    },
+    {
+        "id": "proj_out",
+        "type": "mqtt out",
+        "z": "proj_sensor_tab",
+        "name": "publica lab/sensor/sala-01",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "maxAttempts": "",
+        "broker": "cfg_sensorauto_broker",
+        "x": 760,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "proj_dbg",
+        "type": "debug",
+        "z": "proj_sensor_tab",
+        "name": "Projeto - leitura publicada",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 760,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "sensor_cmt_links",
+        "type": "comment",
+        "z": "proj_sensor_tab",
+        "name": "Depois do Deploy, confira:",
+        "info": "[Abrir o InfluxDB](http://localhost:8086) | [Abrir o Grafana](http://localhost:3000)",
+        "x": 250,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "cfg_sensorauto_broker",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "Mosquitto lab (projeto - sensor automatico)",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "nodered-projeto-sensor",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]

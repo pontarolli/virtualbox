@@ -230,18 +230,23 @@ cópia está na pasta `lab-stack/` deste repositório.
 
 ## 6. Materiais de aula prontos na VM
 
-A VM já vem com quatro abas de exemplo no Node-RED e dois painéis no
-Grafana. Tudo está versionado nesta pasta, então dá para reinstalar ou
-levar para outra VM.
+A VM já vem com sete abas de exemplo no Node-RED e dois painéis no
+Grafana. Cada aba é marcada como **🧪 Prática** (exploração livre) ou
+**🚀 Projeto** (fica sempre ligada — é o que alimenta o painel do Grafana).
+Tudo está versionado nesta pasta, então dá para reinstalar ou levar para
+outra VM.
 
-### Node-RED — quatro abas (<http://localhost:1880>)
+### Node-RED — sete abas (<http://localhost:1880>)
 
-| Aba | Assunto | Como usar |
-|---|---|---|
-| **Blocos básicos** | `function`, `change`, `switch`, `template`, `split`/`join`, `delay` | seis exemplos independentes; clique no inject e compare entrada e saída no Debug |
-| **MQTT** | publicar e assinar no Mosquitto, curingas `#` e `+` | publicadores em cima, assinantes embaixo |
-| **InfluxDB** | gravar séries temporais e consultar com Flux | inclui uma ponte MQTT → InfluxDB |
-| **MySQL** | cheat sheet de SQL (27 consultas em três níveis), listar bancos/tamanhos/tabelas e um CRUD completo (`authors`/`books`) — tudo contra o container `mysql` da própria VM | cheat sheet: rode o inject **0** primeiro, depois qualquer exemplo em qualquer ordem; listagens: três injects independentes; CRUD: injects **na ordem de 0 a 9** |
+| Aba | Tipo | Assunto | Como usar |
+|---|---|---|---|
+| **0 - Comece aqui** | guia | roteiro numerado com links para o InfluxDB e o Grafana | clique no node de comentário e abra o painel **Info** (`i`) |
+| **1 - Prática: Blocos básicos** | 🧪 | `function`, `change`, `switch`, `template`, `split`/`join`, `delay` | seis exemplos independentes; clique no inject e compare entrada e saída no Debug |
+| **2 - Prática: MQTT** | 🧪 | publicar e assinar no Mosquitto, curingas `#` e `+` | publicadores em cima, assinantes embaixo |
+| **3 - Projeto: Sensor automático** | 🚀 | publica a leitura da `sala-01` sozinho, a cada 10 s | dê Deploy e deixe ligada |
+| **4 - Projeto: Ponte → InfluxDB** | 🚀 | assina `lab/sensor/+` e grava no InfluxDB, sozinha | dê Deploy e deixe ligada — junto com a aba 3, faz o painel do Grafana oscilar sozinho |
+| **5 - Prática: InfluxDB** | 🧪 | gravar séries temporais e consultar com Flux | quatro injects independentes |
+| **6 - Extra: MySQL** | — | cheat sheet de SQL (27 consultas em três níveis), listar bancos/tamanhos/tabelas e um CRUD completo (`authors`/`books`) — tudo contra o container `mysql` da própria VM | cheat sheet: rode o inject **0** primeiro, depois qualquer exemplo em qualquer ordem; listagens: três injects independentes; CRUD: injects **na ordem de 0 a 9** |
 
 Cada aba tem a explicação completa na sua própria guia **Info** (painel da
 direita no Node-RED). Os arquivos `.json`, o roteiro de aula detalhado e o
@@ -255,8 +260,9 @@ script de instalação estão em [`nodered/`](nodered/README.md).
 > Windows em vez do da VM, para quem quiser explorar isso por conta
 > própria. Detalhes completos em [`nodered/README.md`](nodered/README.md).
 
-Sugestão de ordem: **Blocos básicos → MQTT → InfluxDB → MySQL**. Os dois
-primeiros se encadeiam.
+Sugestão de ordem: **0 → 1 → 2 → 3 → 4 → 5 → 6**, seguindo a numeração das
+próprias abas (é a mesma ordem do livro). As abas 3 e 4 são o projeto; 1, 2
+e 5 são prática livre; 6 é material extra.
 
 ### Grafana — dois painéis (<http://localhost:3000>)
 
@@ -276,6 +282,11 @@ o `.json` ali e reiniciar o Grafana.
 Deixe o painel *Sensores* aberto, vá ao Node-RED e clique no inject 2 da aba
 **MQTT**. A leitura é publicada no broker, a ponte da aba **InfluxDB** grava
 no banco, e o ponto aparece no gráfico sozinho.
+
+Para a versão sem clicar, deixe ligadas as abas **3 - Projeto: Sensor
+automático** e **4 - Projeto: Ponte → InfluxDB**: o sensor publica sozinho
+a cada 10 segundos, a ponte grava e o painel (refresh 10s) passa a oscilar
+ao vivo, sem ninguém tocar no Node-RED.
 
 O que se quer que a turma perceba é que **ninguém liga o Node-RED ao
 Grafana**: um escreve no InfluxDB, o outro lê do InfluxDB. O banco é o ponto
