@@ -231,8 +231,8 @@ cópia está na pasta `lab-stack/` deste repositório.
 ## 6. Materiais de aula prontos na VM
 
 A VM já vem com sete abas de exemplo no Node-RED e dois painéis no
-Grafana. Cada aba é marcada como **🧪 Prática** (exploração livre) ou
-**🚀 Projeto** (fica sempre ligada — é o que alimenta o painel do Grafana).
+Grafana. Cada aba é marcada como **Prática** (exploração livre) ou
+**Projeto** (fica sempre ligada — é o que alimenta o painel do Grafana).
 Tudo está versionado nesta pasta, então dá para reinstalar ou levar para
 outra VM.
 
@@ -241,11 +241,11 @@ outra VM.
 | Aba | Tipo | Assunto | Como usar |
 |---|---|---|---|
 | **0 - Comece aqui** | guia | roteiro numerado com links para o InfluxDB e o Grafana | clique no node de comentário e abra o painel **Info** (`i`) |
-| **1 - Prática: Blocos básicos** | 🧪 | `function`, `change`, `switch`, `template`, `split`/`join`, `delay` | seis exemplos independentes; clique no inject e compare entrada e saída no Debug |
-| **2 - Prática: MQTT** | 🧪 | publicar e assinar no Mosquitto, curingas `#` e `+` | publicadores em cima, assinantes embaixo |
-| **3 - Projeto: Sensor automático** | 🚀 | publica a leitura da `sala-01` sozinho, a cada 10 s | dê Deploy e deixe ligada |
-| **4 - Projeto: Ponte → InfluxDB** | 🚀 | assina `lab/sensor/+` e grava no InfluxDB, sozinha | dê Deploy e deixe ligada — junto com a aba 3, faz o painel do Grafana oscilar sozinho |
-| **5 - Prática: InfluxDB** | 🧪 | gravar séries temporais e consultar com Flux | quatro injects independentes |
+| **1 - Prática: Blocos básicos** | | `function`, `change`, `switch`, `template`, `split`/`join`, `delay` | seis exemplos independentes; clique no inject e compare entrada e saída no Debug |
+| **2 - Prática: MQTT** | | publicar e assinar no Mosquitto, curingas `#` e `+` | publicadores em cima, assinantes embaixo |
+| **3 - Projeto: Sensor automático** | | publica a leitura da `sala-01` sozinho, a cada 10 s | dê Deploy e deixe ligada |
+| **4 - Projeto: Ponte → InfluxDB** | | assina `lab/sensor/+` e grava no InfluxDB, sozinha | dê Deploy e deixe ligada — junto com a aba 3, faz o painel do Grafana oscilar sozinho |
+| **5 - Prática: InfluxDB** | | gravar séries temporais e consultar com Flux | quatro injects independentes |
 | **6 - Extra: MySQL** | — | cheat sheet de SQL (27 consultas em três níveis), listar bancos/tamanhos/tabelas e um CRUD completo (`authors`/`books`) — tudo contra o container `mysql` da própria VM | cheat sheet: rode o inject **0** primeiro, depois qualquer exemplo em qualquer ordem; listagens: três injects independentes; CRUD: injects **na ordem de 0 a 9** |
 
 Cada aba tem a explicação completa na sua própria guia **Info** (painel da

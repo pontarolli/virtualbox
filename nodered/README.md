@@ -1,7 +1,7 @@
 # Flows de exemplo do Node-RED (laboratório de Redes)
 
-Sete abas prontas para aula, cada uma claramente marcada como **🧪 Prática**
-(exploração livre, sem efeito no projeto) ou **🚀 Projeto** (fica ligada —
+Sete abas prontas para aula, cada uma claramente marcada como **Prática**
+(exploração livre, sem efeito no projeto) ou **Projeto** (fica ligada —
 é o que alimenta o painel do Grafana). Todas já estão instaladas no
 Node-RED da VM (<http://localhost:1880>); os arquivos abaixo servem para os
 alunos importarem e para reinstalar.
@@ -9,11 +9,11 @@ alunos importarem e para reinstalar.
 | # | Arquivo | Aba no Node-RED | Tipo | Assunto |
 |---|---|---|---|---|
 | 0 | `flow-0-comece-aqui.json` | **0 - Comece aqui** | guia | roteiro numerado com links clicáveis para o Node-RED, o InfluxDB e o Grafana |
-| 1 | `flow-blocos-basicos.json` | **1 - Prática: Blocos básicos** | 🧪 Prática | `function`, `change`, `switch`, `template`, `split`/`join`, `delay` |
-| 2 | `flow-mqtt.json` | **2 - Prática: MQTT** | 🧪 Prática | publicar e assinar no Mosquitto, curingas `#` e `+` |
-| 3 | `flow-sensor-continuo.json` | **3 - Projeto: Sensor automático** | 🚀 Projeto | publica a leitura da `sala-01` sozinho, a cada 10 s |
-| 4 | `flow-influxdb-ponte.json` | **4 - Projeto: Ponte → InfluxDB** | 🚀 Projeto | assina `lab/sensor/+` e grava cada leitura no InfluxDB, sozinha |
-| 5 | `flow-influxdb-pratica.json` | **5 - Prática: InfluxDB** | 🧪 Prática | gravar manualmente, consultar e agregar com Flux |
+| 1 | `flow-blocos-basicos.json` | **1 - Prática: Blocos básicos** | Prática | `function`, `change`, `switch`, `template`, `split`/`join`, `delay` |
+| 2 | `flow-mqtt.json` | **2 - Prática: MQTT** | Prática | publicar e assinar no Mosquitto, curingas `#` e `+` |
+| 3 | `flow-sensor-continuo.json` | **3 - Projeto: Sensor automático** | Projeto | publica a leitura da `sala-01` sozinho, a cada 10 s |
+| 4 | `flow-influxdb-ponte.json` | **4 - Projeto: Ponte → InfluxDB** | Projeto | assina `lab/sensor/+` e grava cada leitura no InfluxDB, sozinha |
+| 5 | `flow-influxdb-pratica.json` | **5 - Prática: InfluxDB** | Prática | gravar manualmente, consultar e agregar com Flux |
 | 6 | `flow-mysql.json` | **6 - Extra: MySQL** | extra | cheat sheet de SQL, listagens e um CRUD completo — tudo no MySQL da própria VM |
 | — | `subir-flow.ps1` | — | — | envia todos os flows acima para o Node-RED da VM |
 
@@ -81,7 +81,7 @@ Envia todos os `flow-*.json`. Para um só: `-Arquivo .\flow-mqtt.json`.
 
 ---
 
-## Aba 1 🧪 Prática: Blocos básicos
+## Aba 1 Prática: Blocos básicos
 
 Seis exemplos independentes, um por linha. Clique no `inject` e compare o
 que entrou com o que saiu, na aba **Debug**.
@@ -100,7 +100,7 @@ A ideia central é a **mensagem**: tudo que anda pelos fios é um objeto
 `change` × `function` costuma render discussão: prefira o `change` quando
 for só mexer em campos, e o `function` quando precisar de lógica.
 
-## Aba 2 🧪 Prática: MQTT
+## Aba 2 Prática: MQTT
 
 Publicadores em cima (`mqtt out`), assinantes embaixo (`mqtt in`). Broker:
 container `mosquitto` da stack.
@@ -119,7 +119,7 @@ exatamente um; publicação e assinatura são desacopladas.
 > isso o assinante `lab/#` usa uma segunda conexão. Cada assinante é um
 > cliente MQTT independente, como seria na vida real.
 
-## Aba 3 🚀 Projeto: Sensor automático
+## Aba 3 Projeto: Sensor automático
 
 É o início do projeto: o mesmo sensor da aba **2 - Prática: MQTT**
 (Fluxo 2), só que publicando sozinho a cada 10 segundos, em vez de esperar
@@ -148,7 +148,7 @@ deste flow ser distribuído.
 > (clique direito na aba → **Disable Flow**); a aba MQTT continua
 > publicando do mesmo jeito, sem depender desta.
 
-## Aba 4 🚀 Projeto: Ponte → InfluxDB
+## Aba 4 Projeto: Ponte → InfluxDB
 
 Três nós, sem nada para clicar: um `mqtt in` assina `lab/sensor/+`, um
 `function` converte o payload do MQTT para o formato que o InfluxDB espera
@@ -194,7 +194,7 @@ ssh -p 2222 user@localhost "cd ~/lab-stack && docker compose restart grafana"
 > painel aparecer vazio com erro de data source, confira o `uid` em
 > **Connections → Data sources → InfluxDB** e ajuste no `.json`.
 
-## Aba 5 🧪 Prática: InfluxDB (consultas Flux)
+## Aba 5 Prática: InfluxDB (consultas Flux)
 
 Fluxos manuais para aprender o banco por conta própria. Nada aqui precisa
 ficar ligado para o projeto funcionar — quem faz isso é a aba **4 -
